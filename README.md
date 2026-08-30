@@ -59,6 +59,25 @@ callback scheme.
 
 Use the client-safe publishable key, never a service-role key. Restart Expo after changing `.env`.
 
+### Production Auth email
+
+Magic links are delivered through Resend using the dedicated
+`auth.df-together.com` sending subdomain and the branded template in
+[`supabase/templates/magic_link.html`](./supabase/templates/magic_link.html).
+Verify that domain in Resend with tracking disabled, then make the Resend API
+key available only while pushing the Auth configuration:
+
+```bash
+read -s RESEND_API_KEY
+export RESEND_API_KEY
+npx supabase@latest config push --project-ref YOUR_PROJECT_REF
+unset RESEND_API_KEY
+```
+
+Never commit the key or prefix it with `EXPO_PUBLIC_`. The SMTP configuration
+uses `smtp.resend.com` over STARTTLS on port 587 and sends as
+`DF Together <no-reply@auth.df-together.com>`.
+
 ## 3. Refresh the Dreamforce catalog later
 
 The importer opens the public RainFocus catalog in local Google Chrome, expands every result, and replaces the bundled JSON.
