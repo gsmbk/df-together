@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible problem in DF Together
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve DF Together. Do not include credentials or private attendee data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open…
+        2. Tap…
+        3. See…
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device and build
+      description: For example, iPhone 16 Pro on iOS 20, TestFlight build 12.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Add screenshots or logs only after removing sensitive information.

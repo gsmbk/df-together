@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "dreamforce-agenda",
-    "slug": "dreamforce-agenda",
+    "name": "DF Together",
+    "slug": "df-together",
     "version": "1.0.0",
+    "scheme": "dftogether",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.geomorjane.dftogether",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.geomorjane.dftogether",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,6 +26,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": ["expo-font"]
   }
 }

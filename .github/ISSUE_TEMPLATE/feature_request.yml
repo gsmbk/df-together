@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest an improvement for DF Together
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What attendee need would this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Explain what the attendee should be able to do.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      options:
+        - Catalog and filters
+        - Personal agenda
+        - Friends and sharing
+        - Authentication and privacy
+        - Distribution and deployment
+        - Other
+    validations:
+      required: true
