@@ -14,8 +14,9 @@
       .eyebrow { margin: 24px 0 8px; color: #0176d3; font-size: 12px; font-weight: 900; letter-spacing: .12em; }
       h1 { margin: 0; font-size: clamp(30px, 8vw, 42px); line-height: 1.05; }
       p { color: #52647b; font-size: 16px; line-height: 1.55; }
-      a { display: block; margin-top: 18px; padding: 15px 20px; border-radius: 999px; background: #0176d3; color: white; font-weight: 800; text-align: center; text-decoration: none; }
+      .button { display: block; margin-top: 18px; padding: 15px 20px; border-radius: 999px; background: #0176d3; color: white; font-weight: 800; text-align: center; text-decoration: none; }
       a.secondary { margin-top: 10px; border: 1px solid #0176d3; background: white; color: #0b5cab; }
+      .unavailable { cursor: default; background: #e9eef5; color: #52647b; }
       small { display: block; margin-top: 22px; color: #708096; line-height: 1.45; }
       [hidden] { display: none !important; }
     </style>
@@ -25,15 +26,18 @@
       <div class="mark">DF</div>
       <div class="eyebrow">DF TOGETHER</div>
       <h1>Let’s compare Dreamforce plans.</h1>
-      <p>Accept the invitation, then choose whether you want to share your agenda. Sharing is private and off by default.</p>
-      <a id="open-app" href="dftogether://">Open DF Together</a>
-      <a class="secondary" hidden id="get-app" href="#">Get the TestFlight app</a>
+      <p id="availability">The iPhone beta is not available yet. We’re testing it now, and this page will get an install button when it’s ready.</p>
+      <div class="button unavailable" id="coming-soon">iPhone beta coming soon</div>
+      <a class="button" hidden id="open-app" href="dftogether://">Already installed? Open DF Together</a>
+      <a class="button secondary" hidden id="get-app" href="#">Get the TestFlight app</a>
+      <p>Once the app is available, you can accept this invitation and decide whether to share your agenda. Sharing is private and off by default.</p>
       <small>Independent planning companion. This does not reserve a seat or update your official Dreamforce agenda.</small>
     </main>
     <script src="/config.js"></script>
     <script>
       const invite = new URLSearchParams(location.search).get('invite');
-      document.querySelector('#open-app').href = invite
+      const openApp = document.querySelector('#open-app');
+      openApp.href = invite
         ? `dftogether://invite/${encodeURIComponent(invite)}`
         : 'dftogether://';
       const testFlightUrl = window.DF_TOGETHER_TESTFLIGHT_URL || '';
@@ -41,6 +45,9 @@
         const getApp = document.querySelector('#get-app');
         getApp.href = testFlightUrl;
         getApp.hidden = false;
+        openApp.hidden = false;
+        document.querySelector('#coming-soon').hidden = true;
+        document.querySelector('#availability').textContent = 'The iPhone beta is ready. Install DF Together, then reopen this invitation to connect with your friend.';
       }
     </script>
   </body>

@@ -88,7 +88,7 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ## 5. Optional Vercel friend-invite bridge
 
-Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is a static landing page that turns a normal HTTPS link into an **Open DF Together** button. The official bridge is live at [invite-fr9xp2jkx-gsmbk.vercel.app/invite](https://invite-fr9xp2jkx-gsmbk.vercel.app/invite).
+Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is a static landing page that turns a normal HTTPS link into an **Open DF Together** button once the iPhone beta is available. Until then, it clearly marks the beta as coming soon. The official bridge is live at [invite-web-gsmbk.vercel.app/invite](https://invite-web-gsmbk.vercel.app/invite).
 
 1. Put the TestFlight public URL in `invite-web/config.js`.
 2. Deploy that folder to Vercel:

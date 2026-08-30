@@ -1,4 +1,4 @@
 {
   "cleanUrls": true,
-  "rewrites": [{ "source": "/invite", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/invite", "destination": "/" }]
 }
