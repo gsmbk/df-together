@@ -61,9 +61,9 @@ Use the client-safe publishable key, never a service-role key. Restart Expo afte
 
 ### Production Auth email
 
-Magic links are delivered through Resend using the dedicated
-`auth.df-together.com` sending subdomain and the branded template in
-[`supabase/templates/magic_link.html`](./supabase/templates/magic_link.html).
+First-time confirmations and returning-user magic links are delivered through
+Resend using the dedicated `auth.df-together.com` sending subdomain and the
+branded templates in [`supabase/templates`](./supabase/templates).
 Verify that domain in Resend with tracking disabled, then make the Resend API
 key available only while pushing the Auth configuration:
 
