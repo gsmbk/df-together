@@ -1,5 +1,9 @@
-create extension if not exists pgcrypto;
-create extension if not exists citext;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists citext with schema extensions;
+
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
 
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -12,7 +16,7 @@ create table public.profiles (
 
 create table public.profile_emails (
   user_id uuid primary key references public.profiles (id) on delete cascade,
-  email citext not null unique,
+  email extensions.citext not null unique,
   created_at timestamptz not null default now()
 );
 
@@ -40,11 +44,14 @@ create index friendships_addressee_idx on public.friendships (addressee_id, stat
 create table public.friend_invites (
   id uuid primary key default gen_random_uuid(),
   inviter_id uuid not null references public.profiles (id) on delete cascade,
-  code text not null unique default encode(gen_random_bytes(18), 'hex'),
+  code text not null unique default encode(extensions.gen_random_bytes(18), 'hex'),
   expires_at timestamptz not null default (now() + interval '30 days'),
   accepted_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create index friend_invites_inviter_idx on public.friend_invites (inviter_id);
+create index friend_invites_accepted_by_idx on public.friend_invites (accepted_by);
 
 create table public.agenda_items (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -56,7 +63,7 @@ create table public.agenda_items (
 
 create index agenda_items_user_idx on public.agenda_items (user_id, created_at);
 
-create or replace function public.touch_updated_at()
+create or replace function private.touch_updated_at()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -69,9 +76,9 @@ $$;
 
 create trigger profiles_touch_updated_at
 before update on public.profiles
-for each row execute function public.touch_updated_at();
+for each row execute function private.touch_updated_at();
 
-create or replace function public.create_profile_for_new_user()
+create or replace function private.create_profile_for_new_user()
 returns trigger
 language plpgsql
 security definer
@@ -101,7 +108,7 @@ $$;
 
 create trigger auth_user_created
 after insert on auth.users
-for each row execute function public.create_profile_for_new_user();
+for each row execute function private.create_profile_for_new_user();
 
 -- Make the migration safe for a Supabase project that already has auth users.
 insert into public.profiles (id, display_name, avatar_color)
@@ -122,7 +129,7 @@ from auth.users u
 where u.email is not null
 on conflict do nothing;
 
-create or replace function public.are_friends(first_user uuid, second_user uuid)
+create or replace function private.are_friends(first_user uuid, second_user uuid)
 returns boolean
 language sql
 stable
@@ -140,7 +147,7 @@ as $$
   );
 $$;
 
-create or replace function public.has_active_relationship(first_user uuid, second_user uuid)
+create or replace function private.has_active_relationship(first_user uuid, second_user uuid)
 returns boolean
 language sql
 stable
@@ -166,48 +173,51 @@ alter table public.agenda_items enable row level security;
 
 create policy "profiles visible to self and connections"
 on public.profiles for select to authenticated
-using (id = auth.uid() or public.has_active_relationship(auth.uid(), id));
+using (
+  id = (select auth.uid())
+  or private.has_active_relationship((select auth.uid()), id)
+);
 
 create policy "users update their own profile"
 on public.profiles for update to authenticated
-using (id = auth.uid())
-with check (id = auth.uid());
+using (id = (select auth.uid()))
+with check (id = (select auth.uid()));
 
 create policy "users see their own private email"
 on public.profile_emails for select to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 create policy "participants see friendships"
 on public.friendships for select to authenticated
-using (auth.uid() in (requester_id, addressee_id));
+using ((select auth.uid()) in (requester_id, addressee_id));
 
 create policy "users send their own requests"
 on public.friendships for insert to authenticated
-with check (requester_id = auth.uid() and requester_id <> addressee_id);
+with check (requester_id = (select auth.uid()) and requester_id <> addressee_id);
 
 create policy "addressee responds to pending request"
 on public.friendships for update to authenticated
-using (addressee_id = auth.uid() and status = 'pending')
-with check (addressee_id = auth.uid() and status in ('accepted', 'rejected'));
+using (addressee_id = (select auth.uid()) and status = 'pending')
+with check (addressee_id = (select auth.uid()) and status in ('accepted', 'rejected'));
 
 create policy "participants remove friendships"
 on public.friendships for delete to authenticated
-using (auth.uid() in (requester_id, addressee_id));
+using ((select auth.uid()) in (requester_id, addressee_id));
 
 create policy "users see their own invite links"
 on public.friend_invites for select to authenticated
-using (inviter_id = auth.uid());
+using (inviter_id = (select auth.uid()));
 
 create policy "users create their own invite links"
 on public.friend_invites for insert to authenticated
-with check (inviter_id = auth.uid());
+with check (inviter_id = (select auth.uid()));
 
 create policy "users see own or shared friend agenda"
 on public.agenda_items for select to authenticated
 using (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   or (
-    public.are_friends(auth.uid(), user_id)
+    private.are_friends((select auth.uid()), user_id)
     and exists (
       select 1 from public.profiles p
       where p.id = agenda_items.user_id
@@ -218,16 +228,16 @@ using (
 
 create policy "users add their own agenda items"
 on public.agenda_items for insert to authenticated
-with check (user_id = auth.uid());
+with check (user_id = (select auth.uid()));
 
 create policy "users update their own agenda items"
 on public.agenda_items for update to authenticated
-using (user_id = auth.uid())
-with check (user_id = auth.uid());
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
 
 create policy "users delete their own agenda items"
 on public.agenda_items for delete to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 create or replace function public.send_friend_request(friend_email text)
 returns uuid
@@ -365,14 +375,17 @@ grant select, insert, update, delete on public.agenda_items to authenticated;
 grant select on public.profile_emails to authenticated;
 grant select, insert on public.friend_invites to authenticated;
 
-revoke all on function public.are_friends(uuid, uuid) from public;
-revoke all on function public.has_active_relationship(uuid, uuid) from public;
+revoke all on function private.touch_updated_at() from public, anon, authenticated;
+revoke all on function private.create_profile_for_new_user() from public, anon, authenticated;
+revoke all on function private.are_friends(uuid, uuid) from public, anon, authenticated;
+revoke all on function private.has_active_relationship(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.send_friend_request(text) from public;
 revoke all on function public.create_friend_invite() from public;
 revoke all on function public.accept_friend_invite(text) from public;
 
-grant execute on function public.are_friends(uuid, uuid) to authenticated;
-grant execute on function public.has_active_relationship(uuid, uuid) to authenticated;
+grant usage on schema private to authenticated;
+grant execute on function private.are_friends(uuid, uuid) to authenticated;
+grant execute on function private.has_active_relationship(uuid, uuid) to authenticated;
 grant execute on function public.send_friend_request(text) to authenticated;
 grant execute on function public.create_friend_invite() to authenticated;
 grant execute on function public.accept_friend_invite(text) to authenticated;

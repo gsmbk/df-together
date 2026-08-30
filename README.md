@@ -20,7 +20,7 @@ The bundled catalog currently contains **1,377 sessions and 1,771 scheduled occu
 
 ## 1. Run the app locally
 
-Requirements: Node.js 20+, npm, Xcode for an iOS simulator, and a Supabase project for social features.
+Requirements: Node.js 22+, npm, Xcode for an iOS simulator, and a Supabase project for social features.
 
 ```bash
 npm install
@@ -32,15 +32,22 @@ Browsing and local agenda planning work before Supabase is configured.
 
 ## 2. Configure Supabase
 
-1. Create a Supabase project.
-2. In its SQL editor, run [`supabase/migrations/20260830000000_initial_social_agenda.sql`](./supabase/migrations/20260830000000_initial_social_agenda.sql). The migration creates profiles, private email lookup, friendships, one-time invites, agenda items, row-level security policies, and the auth-user profile trigger.
-3. In Supabase **Authentication → URL Configuration**, add this redirect URL:
+1. Create a Supabase project, install the Supabase CLI, and link the checkout to it.
+2. Apply every tracked migration and Auth setting:
+
+   ```bash
+   supabase db push --linked
+   supabase config push
+   ```
+
+   The migrations create profiles, private email lookup, friendships, one-time invites, agenda items, row-level security policies, the auth-user profile trigger, and non-public privileged RPC implementations.
+3. If you use a different app scheme, update `additional_redirect_urls` in [`supabase/config.toml`](./supabase/config.toml). The official build uses:
 
    ```text
    dftogether://auth/callback
    ```
 
-4. Put the project values in `.env`:
+4. Put your project values in `.env`:
 
    ```dotenv
    EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
@@ -81,7 +88,7 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ## 5. Optional Vercel friend-invite bridge
 
-Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is a static landing page that turns a normal HTTPS link into an **Open DF Together** button.
+Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is a static landing page that turns a normal HTTPS link into an **Open DF Together** button. The official bridge is live at [invite-fr9xp2jkx-gsmbk.vercel.app/invite](https://invite-fr9xp2jkx-gsmbk.vercel.app/invite).
 
 1. Put the TestFlight public URL in `invite-web/config.js`.
 2. Deploy that folder to Vercel:
