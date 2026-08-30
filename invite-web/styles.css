@@ -41,8 +41,9 @@ a { color: inherit; }
 .hero h1 span { color: var(--blue); }
 .hero-text { max-width: 630px; margin: 28px 0 0; color: var(--muted); font-size: clamp(18px, 2vw, 21px); line-height: 1.55; }
 .button-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
-.button { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 14px 22px; border-radius: 999px; font-size: 15px; font-weight: 850; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
-.button:hover:not(.is-disabled) { transform: translateY(-2px); }
+.button { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; padding: 14px 22px; border: 0; border-radius: 999px; font-family: inherit; font-size: 15px; font-weight: 850; text-decoration: none; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+.button:hover:not(.is-disabled, :disabled) { transform: translateY(-2px); }
+.button:disabled { cursor: wait; opacity: .72; }
 .button-primary { background: var(--blue); color: white; box-shadow: 0 12px 30px rgba(1, 118, 211, .25); }
 .button-secondary { border: 1px solid #bdcddd; background: white; color: var(--navy); }
 .button-light { background: white; color: var(--navy); }

@@ -64,6 +64,10 @@ Use the client-safe publishable key, never a service-role key. Restart Expo afte
 First-time confirmations and returning-user magic links are delivered through
 Resend using the dedicated `auth.df-together.com` sending subdomain and the
 branded templates in [`supabase/templates`](./supabase/templates).
+Both templates first open `https://df-together.com/auth/confirm`; loading that
+page does not consume the one-time Supabase link. Verification happens only
+after the person explicitly taps **Continue securely**, which protects sign-in
+links from email security scanners that pre-open URLs.
 Verify that domain in Resend with tracking disabled, then make the Resend API
 key available only while pushing the Auth configuration:
 
@@ -113,6 +117,7 @@ npx eas-cli@latest build --platform ios --profile preview
 Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is the static Vercel site at [df-together.com](https://df-together.com). It provides the public landing page, friend-invite bridge, magic-link handoff, privacy notice, and support page:
 
 - `https://df-together.com/invite?invite=...`
+- `https://df-together.com/auth/confirm`
 - `https://df-together.com/auth/callback`
 - `https://df-together.com/privacy`
 - `https://df-together.com/support`

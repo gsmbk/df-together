@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#032d60" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>Confirm your sign-in — DF Together</title>
+  </head>
+  <body>
+    <header class="site-header compact-header">
+      <a class="brand" href="/" aria-label="DF Together home">
+        <span class="brand-mark" aria-hidden="true">DF</span>
+        <span>DF Together</span>
+      </a>
+    </header>
+    <main class="handoff-shell">
+      <section class="handoff-card" aria-live="polite">
+        <div class="handoff-mark" aria-hidden="true">→</div>
+        <p class="eyebrow">ONE MORE STEP</p>
+        <h1 id="confirm-title">Continue your secure sign-in.</h1>
+        <p id="confirm-message">Tap below to verify this one-time link and open DF Together.</p>
+        <button class="button button-primary" id="confirm-sign-in" type="button" disabled>
+          Continue securely
+        </button>
+        <p class="security-note">Opening this page does not use your one-time link. It is used only after you tap Continue.</p>
+      </section>
+    </main>
+    <script src="/auth-confirm-utils.js"></script>
+    <script src="/auth-confirm.js"></script>
+  </body>
+</html>
