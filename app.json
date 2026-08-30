@@ -27,6 +27,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font"]
+    "plugins": [
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ed878ff0-bd39-49c9-a59f-6e9c398256e3"
+      }
+    },
+    "owner": "gsmbk"
   }
 }
