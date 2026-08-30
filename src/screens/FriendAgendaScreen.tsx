@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { useAgenda } from '../contexts/AgendaContext';
 import { timeIndex } from '../data/catalog';
 import { loadFriendAgenda } from '../lib/social';
@@ -17,13 +18,28 @@ export function FriendAgendaScreen({ route }: Props) {
   const { selectedTimeIds } = useAgenda();
   const [items, setItems] = useState<AgendaSelection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErrorMessage(null);
     loadFriendAgenda(route.params.friendId)
-      .then(setItems)
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, [route.params.friendId]);
+      .then((nextItems) => {
+        if (!cancelled) setItems(nextItems);
+      })
+      .catch((error) => {
+        if (!cancelled) setErrorMessage((error as Error).message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadCount, route.params.friendId]);
 
   const resolved = useMemo(
     () =>
@@ -36,7 +52,10 @@ export function FriendAgendaScreen({ route }: Props) {
 
   return (
     <SafeAreaView edges={['bottom']} style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <View style={styles.friendHeader}>
           <Avatar name={route.params.friendName} size={60} />
           <View>
@@ -47,6 +66,23 @@ export function FriendAgendaScreen({ route }: Props) {
 
         {loading ? (
           <ActivityIndicator color={colors.blueBright} size="large" />
+        ) : errorMessage ? (
+          <View style={styles.errorState}>
+            <EmptyState
+              body="Check your connection and try again. We couldn’t verify whether their agenda is empty or private."
+              icon="cloud-offline-outline"
+              title="Couldn’t load this agenda"
+            />
+            <Text selectable style={styles.errorMessage}>
+              {errorMessage}
+            </Text>
+            <PrimaryButton
+              compact
+              icon="refresh-outline"
+              onPress={() => setReloadCount((current) => current + 1)}
+              title="Try again"
+            />
+          </View>
         ) : resolved.length ? (
           resolved.map(({ session, time }) => {
             const together = selectedTimeIds.has(time.id);
@@ -79,6 +115,13 @@ export function FriendAgendaScreen({ route }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   content: { flexGrow: 1, padding: spacing.xl, paddingBottom: 60, gap: spacing.lg },
+  errorState: { alignItems: 'center', gap: spacing.md },
+  errorMessage: {
+    color: colors.inkMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
   friendHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   eyebrow: { color: colors.blueBright, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   title: { color: colors.ink, fontSize: 27, fontWeight: '900', marginTop: 3 },

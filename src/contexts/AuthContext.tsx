@@ -10,6 +10,11 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
+import {
+  authParams,
+  inviteCodeFromUrl,
+  isAuthCallbackUrl,
+} from '../lib/deep-links';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { FriendProfile } from '../types';
 
@@ -29,30 +34,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function authParams(url: string) {
-  const parsed = new URL(url);
-  const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
-  return {
-    accessToken:
-      parsed.searchParams.get('access_token') ?? hashParams.get('access_token'),
-    refreshToken:
-      parsed.searchParams.get('refresh_token') ?? hashParams.get('refresh_token'),
-    code: parsed.searchParams.get('code'),
-  };
-}
-
-function inviteCodeFromUrl(url: string) {
-  const parsed = Linking.parse(url);
-  const path = parsed.path ?? '';
-  const match = path.match(/^invite\/([^/]+)/i);
-  const queryCode = parsed.queryParams?.invite;
-  if (typeof queryCode === 'string' && queryCode) return queryCode;
-  if (parsed.hostname?.toLowerCase() === 'invite' && path) {
-    return path.split('/')[0] ?? null;
-  }
-  return match?.[1] ?? null;
-}
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -116,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     }
 
-    if (!url.includes('auth/callback')) return;
+    if (!isAuthCallbackUrl(url)) return;
     const { accessToken, refreshToken, code } = authParams(url);
 
     if (accessToken && refreshToken) {

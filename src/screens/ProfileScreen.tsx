@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AgendaSyncBanner } from '../components/AgendaSyncBanner';
 import { Avatar } from '../components/Avatar';
 import { DisclaimerBanner } from '../components/DisclaimerBanner';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -70,6 +71,7 @@ export function ProfileScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>PROFILE & PRIVACY</Text>
         <Text style={styles.title}>You’re in control</Text>
+        <AgendaSyncBanner />
 
         {user && profile ? (
           <>

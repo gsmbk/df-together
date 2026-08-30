@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -34,7 +34,7 @@ export function SessionDetailScreen({ route }: Props) {
     const perform = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       add({ sessionId: session.id, sessionTimeId: time.id }).catch((error) =>
-        Alert.alert('Could not sync agenda', error.message),
+        Alert.alert('Could not save agenda', (error as Error).message),
       );
     };
     const conflicts = selections
@@ -87,8 +87,11 @@ export function SessionDetailScreen({ route }: Props) {
                   compact
                   icon={selected ? 'checkmark' : 'add'}
                   onPress={() => {
-                    if (selected) remove(time.id).catch(() => undefined);
-                    else addOccurrence(time);
+                    if (selected) {
+                      remove(time.id).catch((error) =>
+                        Alert.alert('Could not save agenda', (error as Error).message),
+                      );
+                    } else addOccurrence(time);
                   }}
                   title={selected ? 'Added' : 'Add'}
                   variant={selected ? 'secondary' : 'primary'}

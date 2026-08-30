@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { memo } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,7 +28,9 @@ export const SessionCard = memo(function SessionCard({ session, onOpen }: Props)
       .filter((item) => item && overlappingTimes(item.time, occurrence));
     const perform = () => {
       Haptics.selectionAsync();
-      add({ sessionId: session.id, sessionTimeId: occurrence.id }).catch(() => undefined);
+      add({ sessionId: session.id, sessionTimeId: occurrence.id }).catch((error) =>
+        Alert.alert('Could not save agenda', (error as Error).message),
+      );
     };
     if (!conflicts.length) return perform();
     Alert.alert(
@@ -44,7 +46,9 @@ export const SessionCard = memo(function SessionCard({ session, onOpen }: Props)
   const quickAction = () => {
     if (session.times.length !== 1) return onOpen();
     if (selected) {
-      remove(time.id).catch(() => undefined);
+      remove(time.id).catch((error) =>
+        Alert.alert('Could not save agenda', (error as Error).message),
+      );
     } else {
       addOccurrence(time);
     }

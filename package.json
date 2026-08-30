@@ -27,8 +27,10 @@
     "react-native-url-polyfill": "^4.0.0"
   },
   "devDependencies": {
+    "@types/node": "26.4.0",
     "@types/react": "~19.2.2",
     "playwright-core": "^1.62.1",
+    "tsx": "4.23.13",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -37,9 +39,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
     "import:sessions": "node scripts/import-dreamforce.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
-    "check": "npm run typecheck && npm run validate:catalog"
+    "check": "npm run typecheck && npm test && npm run validate:catalog"
   },
   "private": true
 }

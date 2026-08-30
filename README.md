@@ -28,7 +28,10 @@ cp .env.example .env
 npm start
 ```
 
-Browsing and local agenda planning work before Supabase is configured.
+Browsing and local agenda planning work before Supabase is configured. Expo Go is
+enough for that local-only flow; use a development, preview, or TestFlight build
+when testing magic links because authentication needs the stable `dftogether://`
+callback scheme.
 
 ## 2. Configure Supabase
 
@@ -112,7 +115,10 @@ npm run check
 npx expo export --platform ios
 ```
 
-The catalog validator checks counts, unique IDs, required fields, timestamps, source attribution, and the planning-only disclaimer.
+The check command runs strict TypeScript validation, behavior tests for agenda
+sync, deep links, search, filters, and overlap detection, then validates catalog
+counts, unique IDs, required fields, timestamps, source attribution, and the
+planning-only disclaimer.
 
 ## Contributing
 

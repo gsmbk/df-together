@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AgendaSyncBanner } from '../components/AgendaSyncBanner';
 import { DisclaimerBanner } from '../components/DisclaimerBanner';
 import { EmptyState } from '../components/EmptyState';
 import { useAgenda } from '../contexts/AgendaContext';
@@ -59,6 +60,7 @@ export function AgendaScreen({ navigation }: Props) {
             <Text style={styles.subtitle}>
               {selections.length} {selections.length === 1 ? 'session' : 'sessions'} selected
             </Text>
+            <AgendaSyncBanner />
             <DisclaimerBanner compact />
           </View>
         }
@@ -99,7 +101,9 @@ export function AgendaScreen({ navigation }: Props) {
               hitSlop={8}
               onPress={(event) => {
                 event.stopPropagation();
-                remove(item.time.id).catch(() => undefined);
+                remove(item.time.id).catch((error) =>
+                  Alert.alert('Could not save agenda', (error as Error).message),
+                );
               }}
             >
               <Ionicons color={colors.inkMuted} name="close-circle" size={23} />
