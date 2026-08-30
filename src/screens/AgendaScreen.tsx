@@ -120,7 +120,13 @@ export function AgendaScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   content: { flexGrow: 1, paddingBottom: spacing.xxl },
-  header: { padding: spacing.xl, gap: spacing.sm },
+  header: {
+    padding: spacing.xl,
+    gap: spacing.sm,
+    backgroundColor: colors.cloud,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
   eyebrow: { color: colors.blueBright, fontSize: 11, fontWeight: '900', letterSpacing: 1.4 },
   title: { color: colors.ink, fontSize: 31, fontWeight: '900' },
   subtitle: { color: colors.inkMuted, fontSize: 14, marginBottom: spacing.md },
@@ -140,6 +146,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     padding: spacing.lg,
     borderRadius: radii.md,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,

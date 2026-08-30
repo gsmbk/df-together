@@ -1,23 +1,27 @@
 export const colors = {
-  ink: '#08224A',
-  inkMuted: '#52647B',
+  ink: '#032D60',
+  inkMuted: '#4F6478',
   blue: '#0B5CAB',
   blueBright: '#0176D3',
+  blueVivid: '#1B96FF',
   blueSoft: '#EAF5FE',
+  sky: '#DFF3FE',
+  cloud: '#F3F9FF',
   navy: '#032D60',
-  purple: '#7F4FD8',
-  purpleSoft: '#F1EBFF',
+  purple: '#9050E9',
+  purpleSoft: '#F4F0FF',
   green: '#2E844A',
-  greenSoft: '#E3FCEF',
-  orange: '#A86403',
-  orangeSoft: '#FFF1D6',
+  greenBright: '#45C65A',
+  greenSoft: '#EAFBF0',
+  orange: '#B85D00',
+  orangeSoft: '#FFF3E6',
   red: '#BA0517',
-  redSoft: '#FEE7E7',
+  redSoft: '#FDECEC',
   white: '#FFFFFF',
-  canvas: '#F7F9FC',
-  line: '#DDE3EA',
-  lineStrong: '#C9D2DE',
-  shadow: '#001A3D',
+  canvas: '#F3F8FC',
+  line: '#D5E4F0',
+  lineStrong: '#AFC8DC',
+  shadow: '#032D60',
 };
 
 export const spacing = {
@@ -30,16 +34,12 @@ export const spacing = {
 };
 
 export const radii = {
-  sm: 10,
-  md: 16,
-  lg: 24,
+  sm: 12,
+  md: 20,
+  lg: 30,
   pill: 999,
 };
 
 export const shadow = {
-  shadowColor: colors.shadow,
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.08,
-  shadowRadius: 16,
-  elevation: 3,
+  boxShadow: '0 10px 28px rgba(3, 45, 96, 0.09)',
 };

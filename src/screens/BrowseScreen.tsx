@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BrandMark } from '../components/BrandMark';
 import { Chip } from '../components/Chip';
 import { EmptyState } from '../components/EmptyState';
 import { SessionCard } from '../components/SessionCard';
@@ -76,12 +77,29 @@ export function BrowseScreen({ navigation }: Props) {
         }
         ListHeaderComponent={
           <>
-            <LinearGradient colors={[colors.navy, '#114B8A']} style={styles.hero}>
-              <Text style={styles.eyebrow}>DREAMFORCE 2026 · SEP 15–17</Text>
-              <Text style={styles.heroTitle}>Build your best three days.</Text>
+            <LinearGradient
+              colors={[colors.blueVivid, colors.blueBright, colors.blue]}
+              end={{ x: 1, y: 1 }}
+              start={{ x: 0, y: 0 }}
+              style={styles.hero}
+            >
+              <View style={styles.heroOrbLarge} />
+              <View style={styles.heroOrbSmall} />
+              <View style={styles.heroTopline}>
+                <BrandMark inverted size={42} />
+                <View style={styles.heroBrandCopy}>
+                  <Text style={styles.heroBrand}>DF TOGETHER</Text>
+                  <Text style={styles.heroDate}>DREAMFORCE 2026 · SEP 15–17</Text>
+                </View>
+                <View style={styles.offlinePill}>
+                  <View style={styles.offlineDot} />
+                  <Text style={styles.offlineText}>OFFLINE</Text>
+                </View>
+              </View>
+              <Text style={styles.heroTitle}>Build your Dreamforce, together.</Text>
               <Text style={styles.heroBody}>
-                {catalog.metadata.sessionCount.toLocaleString()} sessions, available
-                offline.
+                {catalog.metadata.sessionCount.toLocaleString()} sessions on-device. Find
+                your plan, then find your people.
               </Text>
             </LinearGradient>
 
@@ -153,10 +171,51 @@ export function BrowseScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   listContent: { paddingBottom: spacing.xl },
-  hero: { margin: spacing.lg, padding: spacing.xl, borderRadius: radii.lg, gap: spacing.sm },
-  eyebrow: { color: '#B8D9FF', fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
-  heroTitle: { color: colors.white, fontSize: 29, lineHeight: 34, fontWeight: '900' },
-  heroBody: { color: '#DCEBFA', fontSize: 14, lineHeight: 20 },
+  hero: {
+    position: 'relative',
+    overflow: 'hidden',
+    margin: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: radii.lg,
+    borderCurve: 'continuous',
+    gap: spacing.md,
+    boxShadow: '0 16px 34px rgba(1, 118, 211, 0.2)',
+  },
+  heroOrbLarge: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    right: -84,
+    top: -104,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroOrbSmall: {
+    position: 'absolute',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    right: 52,
+    bottom: -52,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  heroTopline: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  heroBrandCopy: { flex: 1, gap: 2 },
+  heroBrand: { color: colors.white, fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+  heroDate: { color: '#D8EFFF', fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
+  offlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(3,45,96,0.3)',
+  },
+  offlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.greenBright },
+  offlineText: { color: colors.white, fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
+  heroTitle: { color: colors.white, fontSize: 30, lineHeight: 35, fontWeight: '900' },
+  heroBody: { color: '#EAF7FF', fontSize: 14, lineHeight: 20 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -174,6 +233,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
+    boxShadow: '0 6px 18px rgba(3, 45, 96, 0.06)',
   },
   searchInput: { flex: 1, color: colors.ink, fontSize: 15 },
   filterButton: {
@@ -185,6 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
+    boxShadow: '0 6px 18px rgba(3, 45, 96, 0.06)',
   },
   filterButtonActive: { backgroundColor: colors.blueBright, borderColor: colors.blueBright },
   filterCount: {

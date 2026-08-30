@@ -42,13 +42,17 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: colors.blueBright,
         tabBarInactiveTintColor: colors.inkMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarActiveBackgroundColor: colors.blueSoft,
+        tabBarItemStyle: { borderRadius: 18, marginVertical: 5, marginHorizontal: 3 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '800' },
         tabBarStyle: {
-          height: 82,
-          paddingTop: 7,
-          paddingBottom: 22,
-          borderTopColor: colors.line,
+          height: 84,
+          paddingTop: 6,
+          paddingHorizontal: 6,
+          paddingBottom: 20,
+          borderTopWidth: 0,
           backgroundColor: colors.white,
+          boxShadow: '0 -8px 26px rgba(3, 45, 96, 0.08)',
         },
         tabBarIcon: ({ color, focused, size }) => (
           <Ionicons
@@ -76,7 +80,7 @@ const lightTheme: Theme = {
     card: colors.white,
     text: colors.ink,
     border: colors.line,
-    notification: colors.purple,
+    notification: colors.greenBright,
   },
 };
 
@@ -89,7 +93,7 @@ const darkTheme: Theme = {
     card: colors.white,
     text: colors.ink,
     border: colors.line,
-    notification: colors.purple,
+    notification: colors.greenBright,
   },
 };
 

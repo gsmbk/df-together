@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B96FF" />
+      <stop offset="0.62" stop-color="#0176D3" />
+      <stop offset="1" stop-color="#0B5CAB" />
+    </linearGradient>
+    <radialGradient id="light" cx="0.78" cy="0.12" r="0.72">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.4" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#032D60" flood-opacity="0.24" />
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#sky)" />
+  <rect width="1024" height="1024" fill="url(#light)" />
+  <circle cx="898" cy="162" r="218" fill="#FFFFFF" opacity="0.1" />
+  <circle cx="102" cy="930" r="250" fill="#DFF3FE" opacity="0.13" />
+  <path d="M132 735 C 302 872, 696 858, 894 664" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" opacity="0.42" />
+  <path d="M202 298 C 370 146, 666 154, 829 302" fill="none" stroke="#DFF3FE" stroke-width="12" stroke-linecap="round" stroke-dasharray="18 28" opacity="0.68" />
+  <circle cx="205" cy="294" r="24" fill="#FFFFFF" />
+  <circle cx="829" cy="302" r="28" fill="#45C65A" stroke="#FFFFFF" stroke-width="12" />
+  <circle cx="151" cy="746" r="18" fill="#FFFFFF" />
+  <circle cx="886" cy="672" r="20" fill="#DFF3FE" />
+  <g filter="url(#soft-shadow)">
+    <rect x="212" y="254" width="600" height="516" rx="174" fill="#FFFFFF" fill-opacity="0.96" />
+  </g>
+  <text x="512" y="593" text-anchor="middle" font-family="Avenir Next, Helvetica, Arial, sans-serif" font-size="286" font-weight="900" letter-spacing="-18" fill="#032D60">DF</text>
+  <circle cx="742" cy="334" r="42" fill="#45C65A" stroke="#FFFFFF" stroke-width="16" />
+</svg>

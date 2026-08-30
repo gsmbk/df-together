@@ -156,11 +156,13 @@ planning-only disclaimer.
 
 ## Contributing
 
-Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md), use an issue to discuss substantial changes, and open a focused pull request against `main`. Privacy-sensitive social changes should explain their row-level security and sharing impact.
+Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the [`DF Together brand guide`](./BRAND.md), use an issue to discuss substantial changes, and open a focused pull request against `main`. Privacy-sensitive social changes should explain their row-level security and sharing impact.
 
 ## Project map
 
 - [`App.tsx`](./App.tsx) — navigation and app providers
+- [`BRAND.md`](./BRAND.md) — shared palette, visual direction, and independence boundaries
+- [`assets/brand-icon.svg`](./assets/brand-icon.svg) — editable source for the original app mark
 - [`src/data/sessions.json`](./src/data/sessions.json) — bundled offline catalog
 - [`scripts/import-dreamforce.mjs`](./scripts/import-dreamforce.mjs) — repeatable catalog importer
 - [`src/contexts/AgendaContext.tsx`](./src/contexts/AgendaContext.tsx) — account-isolated offline agenda and Supabase sync

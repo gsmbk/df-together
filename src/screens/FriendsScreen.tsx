@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
+import { BrandMark } from '../components/BrandMark';
 import { EmptyState } from '../components/EmptyState';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuth } from '../contexts/AuthContext';
@@ -67,9 +68,7 @@ export function FriendsScreen({ navigation }: Props) {
     return (
       <SafeAreaView edges={['top']} style={styles.safe}>
         <ScrollView contentContainerStyle={styles.signedOut}>
-          <View style={styles.socialIcon}>
-            <Ionicons color={colors.white} name="people" size={38} />
-          </View>
+          <BrandMark size={72} />
           <Text style={styles.eyebrow}>PLAN WITH FRIENDS</Text>
           <Text style={styles.title}>Know where your people are.</Text>
           <Text style={styles.body}>
@@ -265,14 +264,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   signedOut: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.lg },
   content: { padding: spacing.xl, paddingBottom: 60, gap: spacing.lg },
-  socialIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.purple,
-  },
   eyebrow: { color: colors.blueBright, fontSize: 11, fontWeight: '900', letterSpacing: 1.4 },
   title: { color: colors.ink, fontSize: 31, lineHeight: 36, fontWeight: '900' },
   body: { color: colors.inkMuted, fontSize: 15, lineHeight: 22 },

@@ -114,6 +114,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.sm,
     padding: spacing.lg,
     borderRadius: radii.md,
+    borderCurve: 'continuous',
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.line,
@@ -134,6 +135,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.blueSoft,
+    borderWidth: 1,
+    borderColor: colors.sky,
   },
   addButtonSelected: { backgroundColor: colors.green },
   title: {

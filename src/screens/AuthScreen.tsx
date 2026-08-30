@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BrandMark } from '../components/BrandMark';
 import { DisclaimerBanner } from '../components/DisclaimerBanner';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,9 +47,7 @@ export function AuthScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
-        <View style={styles.heroMark}>
-          <Text style={styles.heroMarkText}>DF</Text>
-        </View>
+        <BrandMark size={72} />
         <Text style={styles.eyebrow}>DF TOGETHER</Text>
         <Text style={styles.title}>Plan together. Find each other.</Text>
         <Text style={styles.body}>
@@ -119,15 +118,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.lg,
   },
-  heroMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.navy,
-  },
-  heroMarkText: { color: colors.white, fontSize: 27, fontWeight: '900' },
   eyebrow: { color: colors.blueBright, fontSize: 12, fontWeight: '900', letterSpacing: 1.4 },
   title: { color: colors.ink, fontSize: 34, lineHeight: 39, fontWeight: '900' },
   body: { color: colors.inkMuted, fontSize: 16, lineHeight: 23 },
