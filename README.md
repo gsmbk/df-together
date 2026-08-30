@@ -89,9 +89,16 @@ For a tiny private device list before TestFlight review, the `preview` EAS profi
 npx eas-cli@latest build --platform ios --profile preview
 ```
 
-## 5. Optional Vercel friend-invite bridge
+## 5. DF Together web experience
 
-Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is a static landing page that turns a normal HTTPS link into an **Open DF Together** button once the iPhone beta is available. Until then, it clearly marks the beta as coming soon. The official bridge is live at [invite-web-gsmbk.vercel.app/invite](https://invite-web-gsmbk.vercel.app/invite).
+Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is the static Vercel site at [df-together.com](https://df-together.com). It provides the public landing page, friend-invite bridge, magic-link handoff, privacy notice, and support page:
+
+- `https://df-together.com/invite?invite=...`
+- `https://df-together.com/auth/callback`
+- `https://df-together.com/privacy`
+- `https://df-together.com/support`
+
+Until the iPhone beta is available, the site clearly marks it as coming soon.
 
 1. Put the TestFlight public URL in `invite-web/config.js`.
 2. Deploy that folder to Vercel:
@@ -100,13 +107,16 @@ Custom app links are not always clickable in chat apps. [`invite-web`](./invite-
    npx vercel invite-web
    ```
 
-3. Set this in the app’s `.env`, using the assigned Vercel domain:
+3. Set the public web URLs in the app’s `.env`:
 
    ```dotenv
-   EXPO_PUBLIC_APP_SHARE_URL=https://YOUR_DOMAIN.vercel.app/invite
+   EXPO_PUBLIC_APP_SHARE_URL=https://df-together.com/invite
+   EXPO_PUBLIC_AUTH_REDIRECT_URL=https://df-together.com/auth/callback
    ```
 
-Rebuild the app after changing a public Expo environment variable. Friend shares will then use `https://YOUR_DOMAIN.vercel.app/invite?invite=...`; otherwise they use the native `dftogether://invite/...` link directly.
+Rebuild the app after changing a public Expo environment variable. Friend shares then use `https://df-together.com/invite?invite=...`; the authenticated web callback securely hands the magic-link result into the native app. The native `dftogether://` scheme remains available as a fallback.
+
+The iOS associated-domain entitlement is already configured for `df-together.com`. Before making HTTPS links open the app directly, add the Apple Team ID to `invite-web/.well-known/apple-app-site-association`, deploy it, and rebuild the iOS app.
 
 ## Verification
 

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#032d60" />
+    <meta name="description" content="Accept a friend invitation to compare Dreamforce 2026 agendas in DF Together." />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="canonical" href="https://df-together.com/invite" />
+    <link rel="stylesheet" href="/styles.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DF Together" />
+    <meta property="og:title" content="Join me on DF Together" />
+    <meta property="og:description" content="Let’s compare our Dreamforce plans and find sessions to attend together." />
+    <meta property="og:image" content="https://df-together.com/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Join me on DF Together</title>
+  </head>
+  <body>
+    <header class="site-header compact-header">
+      <a class="brand" href="/" aria-label="DF Together home">
+        <span class="brand-mark" aria-hidden="true">DF</span>
+        <span>DF Together</span>
+      </a>
+      <span class="status-pill"><span aria-hidden="true"></span> Private by default</span>
+    </header>
+    <main class="handoff-shell">
+      <section class="handoff-card">
+        <div class="handoff-mark" aria-hidden="true">↗</div>
+        <p class="eyebrow">A FRIEND INVITED YOU</p>
+        <h1>Let’s compare Dreamforce plans.</h1>
+        <p id="invite-message">
+          Open DF Together to accept this invitation. You decide whether your agenda is shared.
+        </p>
+        <a class="button button-primary" id="open-app" href="dftogether://">Open DF Together</a>
+        <a class="button button-secondary is-disabled" data-testflight-link href="#">iPhone beta coming soon</a>
+        <div class="privacy-mini">
+          <strong>Your agenda stays private unless you turn sharing on.</strong>
+          <span>Only accepted friends can see it, and you can turn sharing off at any time.</span>
+        </div>
+      </section>
+      <p class="handoff-disclaimer">
+        Independent planning companion. This does not reserve a seat or update your official Dreamforce agenda.
+      </p>
+    </main>
+    <script src="/config.js"></script>
+    <script src="/site.js"></script>
+    <script src="/invite.js"></script>
+  </body>
+</html>

@@ -15,15 +15,24 @@ export function authParams(url: string) {
   }
 }
 
-export function isAuthCallbackUrl(url: string) {
+export function isAuthCallbackUrl(url: string, trustedWebCallback?: string) {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol.toLowerCase() !== 'dftogether:') return false;
     const segments = parsed.pathname.split('/').filter(Boolean);
+    const isNativeCallback =
+      parsed.protocol.toLowerCase() === 'dftogether:' &&
+      ((parsed.hostname.toLowerCase() === 'auth' && segments[0] === 'callback') ||
+        (segments.at(-2)?.toLowerCase() === 'auth' &&
+          segments.at(-1)?.toLowerCase() === 'callback'));
+    if (isNativeCallback) return true;
+    if (!trustedWebCallback) return false;
+
+    const trusted = new URL(trustedWebCallback);
+    const normalizePath = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
     return (
-      (parsed.hostname.toLowerCase() === 'auth' && segments[0] === 'callback') ||
-      (segments.at(-2)?.toLowerCase() === 'auth' &&
-        segments.at(-1)?.toLowerCase() === 'callback')
+      parsed.protocol === 'https:' &&
+      parsed.origin === trusted.origin &&
+      normalizePath(parsed.pathname) === normalizePath(trusted.pathname)
     );
   } catch {
     return false;

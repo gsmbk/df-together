@@ -13,7 +13,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://kuuwbxtsxbnwgejnwxww.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_k9c5wxjokGW3efvbcApzqA_CtmSa1y0",
-        "EXPO_PUBLIC_APP_SHARE_URL": "https://invite-web-gsmbk.vercel.app/invite"
+        "EXPO_PUBLIC_APP_SHARE_URL": "https://df-together.com/invite",
+        "EXPO_PUBLIC_AUTH_REDIRECT_URL": "https://df-together.com/auth/callback"
       },
       "ios": {
         "simulator": false
@@ -24,7 +25,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://kuuwbxtsxbnwgejnwxww.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_k9c5wxjokGW3efvbcApzqA_CtmSa1y0",
-        "EXPO_PUBLIC_APP_SHARE_URL": "https://invite-web-gsmbk.vercel.app/invite"
+        "EXPO_PUBLIC_APP_SHARE_URL": "https://df-together.com/invite",
+        "EXPO_PUBLIC_AUTH_REDIRECT_URL": "https://df-together.com/auth/callback"
       }
     }
   },

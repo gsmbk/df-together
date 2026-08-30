@@ -19,6 +19,10 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { FriendProfile } from '../types';
 
 const PENDING_INVITE_KEY = 'df-together.pending-invite';
+const configuredAuthRedirect = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL?.trim();
+const authRedirectUrl = configuredAuthRedirect?.startsWith('https://')
+  ? configuredAuthRedirect
+  : null;
 
 type AuthContextValue = {
   configured: boolean;
@@ -97,7 +101,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     }
 
-    if (!isAuthCallbackUrl(url)) return;
+    if (!isAuthCallbackUrl(url, authRedirectUrl ?? undefined)) return;
     const { accessToken, refreshToken, code } = authParams(url);
 
     if (accessToken && refreshToken) {
@@ -150,7 +154,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const sendMagicLink = useCallback(async (email: string) => {
     if (!supabase) throw new Error('Supabase is not configured yet.');
-    const redirectTo = Linking.createURL('auth/callback', { scheme: 'dftogether' });
+    const redirectTo =
+      authRedirectUrl ?? Linking.createURL('auth/callback', { scheme: 'dftogether' });
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
