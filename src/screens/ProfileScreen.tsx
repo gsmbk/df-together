@@ -22,6 +22,7 @@ import { colors, spacing, text } from '../theme';
 
 const supportUrl = 'https://df-together.com/support';
 const privacyUrl = 'https://df-together.com/privacy';
+const authorUrl = 'https://gsmbk.com';
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, profile, signOut, refreshProfile, configured } = useAuth();
@@ -197,6 +198,13 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
       <GroupedSection header="About">
         <Row detail={catalog.metadata.sessionCount.toLocaleString()} title="Sessions in catalog" />
         <Row detail={new Date(catalog.metadata.importedAt).toLocaleDateString()} title="Catalog updated" />
+        <Row
+          accessibilityHint="Opens gsmbk.com"
+          accessory="chevron"
+          detail="gsmbk.com"
+          onPress={() => Linking.openURL(authorUrl)}
+          title="Built by Geo Morjane"
+        />
         <Row accessory="chevron" onPress={() => Linking.openURL(catalog.metadata.sourceUrl)} title="Official Dreamforce catalog" />
         <Row accessory="chevron" onPress={() => Linking.openURL(privacyUrl)} title="Privacy" />
         <Row accessory="chevron" onPress={() => Linking.openURL(supportUrl)} title="Support" />
