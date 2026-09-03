@@ -1,28 +1,32 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors, spacing, text } from '../theme';
+import { Icon } from './Icon';
+import type { IconSpec } from './icons';
 
 export function EmptyState({
   icon,
   title,
   body,
+  style,
+  children,
 }: {
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: IconSpec;
   title: string;
   body: string;
+  style?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
 }) {
   return (
-    <View style={styles.wrap}>
-      <Ionicons color={colors.blueBright} name={icon} size={42} />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.body}>{body}</Text>
+    <View style={[styles.wrap, style]}>
+      <Icon {...icon} color={colors.tertiaryLabel} size={44} weight="light" />
+      <Text style={[text.title3, styles.center]}>{title}</Text>
+      <Text style={[text.subheadlineSecondary, styles.center]}>{body}</Text>
+      {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: spacing.xxl, alignItems: 'center', gap: spacing.sm },
-  title: { color: colors.ink, fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  body: { color: colors.inkMuted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  wrap: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.xxl, alignItems: 'center', gap: spacing.sm },
+  center: { textAlign: 'center' },
 });

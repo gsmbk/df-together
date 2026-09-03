@@ -1,59 +1,89 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Avatar } from '../components/Avatar';
 import { Chip } from '../components/Chip';
-import { DisclaimerBanner } from '../components/DisclaimerBanner';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import { EmptyState } from '../components/EmptyState';
+import { Cell, GroupedSection, Row } from '../components/GroupedList';
+import { HeaderButton } from '../components/HeaderButton';
+import { Icon } from '../components/Icon';
+import { icons } from '../components/icons';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { useAgenda } from '../contexts/AgendaContext';
-import { overlappingTimes, sessionsById, timeIndex } from '../data/catalog';
-import type { RootStackParamList } from '../navigation';
-import { colors, radii, spacing } from '../theme';
+import { useAgendaActions, useAgendaState } from '../contexts/AgendaContext';
+import { useAuth } from '../contexts/AuthContext';
+import { sessionsById, shortDay, timeRange } from '../data/catalog';
+import { showActions } from '../lib/actions';
+import { addWithConflictCheck, removeWithFeedback } from '../lib/agenda-actions';
+import { addToCalendarWithForm } from '../lib/calendar';
+import { shareSession } from '../lib/share';
+import type { RootScreenProps } from '../navigation';
+import { saveNote, useNote } from '../state/notes';
+import { useFriendsGoing } from '../state/social';
+import { colors, radii, spacing, text } from '../theme';
 import type { SessionTime } from '../types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'SessionDetail'>;
-
-export function SessionDetailScreen({ route }: Props) {
+export function SessionDetailScreen({ navigation, route }: RootScreenProps<'SessionDetail'>) {
   const session = sessionsById.get(route.params.sessionId);
-  const { add, remove, selections, isSelected } = useAgenda();
+  const { selectedTimeIds } = useAgendaState();
+  const actions = useAgendaActions();
+  const { user } = useAuth();
+  const { byTime, bySession } = useFriendsGoing();
+
+  useLayoutEffect(() => {
+    if (!session) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderButton
+          accessibilityLabel="Share session"
+          icon={icons.share}
+          onPress={() => shareSession(session).catch(() => undefined)}
+        />
+      ),
+    });
+  }, [navigation, session]);
+
+  const selectedTimes = useMemo(
+    () => (session ? session.times.filter((time) => selectedTimeIds.has(time.id)) : []),
+    [selectedTimeIds, session],
+  );
 
   if (!session) {
     return (
       <EmptyState
-        body="This session is not available in the bundled catalog."
-        icon="alert-circle-outline"
+        body="This session is not in the bundled catalog. It may have been added after the last import."
+        icon={icons.warning}
+        style={styles.missing}
         title="Session not found"
       />
     );
   }
 
-  const addOccurrence = (time: SessionTime) => {
-    const perform = () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      add({ sessionId: session.id, sessionTimeId: time.id }).catch((error) =>
-        Alert.alert('Could not save agenda', (error as Error).message),
+  const friendsGoing = bySession.get(session.id) ?? [];
+
+  const addToCalendar = () => {
+    const perform = (time: SessionTime) =>
+      addToCalendarWithForm({ session, time }).catch((error) =>
+        Alert.alert('Could not open Calendar', (error as Error).message),
       );
-    };
-    const conflicts = selections
-      .map((selection) => timeIndex.get(selection.sessionTimeId))
-      .filter((item) => item && overlappingTimes(item.time, time));
-    if (!conflicts.length) return perform();
-    Alert.alert(
-      'This time overlaps',
-      `“${conflicts[0]?.session.title}” is already on your agenda.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Keep both', onPress: perform },
-      ],
-    );
+    const candidates = selectedTimes.length ? selectedTimes : session.times;
+    if (candidates.length === 1) return perform(candidates[0]);
+    showActions({
+      title: 'Which time?',
+      options: candidates.map((time) => ({
+        label: `${shortDay(time.dateLabel)} · ${timeRange(time)}`,
+        onPress: () => void perform(time),
+      })),
+    });
   };
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardDismissMode="interactive"
+    >
+      <View style={styles.hero}>
         <View style={styles.chips}>
           {session.formats.map((value) => (
             <Chip key={value} label={value} />
@@ -66,129 +96,232 @@ export function SessionDetailScreen({ route }: Props) {
             <Chip key={value} label={value} tone="orange" />
           ))}
         </View>
-
-        <Text style={styles.title}>{session.title}</Text>
-        <Text style={styles.abstract}>{session.abstract}</Text>
-
-        <Text style={styles.sectionTitle}>Choose a time</Text>
-        <View style={styles.timeList}>
-          {session.times.map((time) => {
-            const selected = isSelected(time.id);
-            return (
-              <View key={time.id} style={[styles.timeCard, selected && styles.timeCardSelected]}>
-                <View style={styles.timeCopy}>
-                  <Text style={styles.timeTitle}>
-                    {time.dateLabel} · {time.startTime}–{time.endTime}
-                  </Text>
-                  <Text style={styles.timeMeta}>{time.location}</Text>
-                  <Text style={styles.seating}>{time.seating}</Text>
-                </View>
-                <PrimaryButton
-                  compact
-                  icon={selected ? 'checkmark' : 'add'}
-                  onPress={() => {
-                    if (selected) {
-                      remove(time.id).catch((error) =>
-                        Alert.alert('Could not save agenda', (error as Error).message),
-                      );
-                    } else addOccurrence(time);
-                  }}
-                  title={selected ? 'Added' : 'Add'}
-                  variant={selected ? 'secondary' : 'primary'}
-                />
-              </View>
-            );
-          })}
-        </View>
-
-        {session.requiredEquipment.length ? (
-          <View style={styles.equipment}>
-            <Ionicons color={colors.orange} name="laptop-outline" size={21} />
-            <Text style={styles.equipmentText}>{session.requiredEquipment.join(' ')}</Text>
+        <Text style={text.title1}>{session.title}</Text>
+        {session.speakers?.length ? (
+          <View style={styles.speakers}>
+            <Icon {...icons.mic} color={colors.secondaryLabel} size={15} />
+            <Text style={[text.subheadlineSecondary, styles.flex]}>{session.speakers.join(', ')}</Text>
           </View>
         ) : null}
+        <Text style={text.bodySecondary}>{session.abstract}</Text>
+      </View>
 
-        <View style={styles.metaGrid}>
-          {[
+      <GroupedSection
+        footer={
+          session.times.length > 1
+            ? 'This session repeats. Pick the time that fits your day.'
+            : selectedTimes.length
+              ? 'On your agenda.'
+              : undefined
+        }
+        header={session.times.length > 1 ? 'Times' : 'Time'}
+      >
+        {session.times.map((time) => {
+          const selected = selectedTimeIds.has(time.id);
+          const friends = byTime.get(time.id) ?? [];
+          return (
+            <Cell key={time.id} style={styles.timeCell}>
+              <View style={styles.timeRow}>
+                <View style={styles.flex}>
+                  <Text style={text.headline}>
+                    {shortDay(time.dateLabel)} · {timeRange(time)}
+                  </Text>
+                  <Text style={text.footnoteSecondary}>{time.location}</Text>
+                  {time.seating ? (
+                    <Text style={[text.caption1Secondary, styles.seating]}>{titleCase(time.seating)}</Text>
+                  ) : null}
+                </View>
+                <PrimaryButton
+                  accessibilityLabel={selected ? 'Remove this time from agenda' : 'Add this time to agenda'}
+                  compact
+                  icon={selected ? icons.checkmark : undefined}
+                  onPress={() =>
+                    selected ? removeWithFeedback(actions, time.id) : addWithConflictCheck(actions, session, time)
+                  }
+                  title={selected ? 'Added' : 'Add'}
+                  variant={selected ? 'tinted' : 'filled'}
+                />
+              </View>
+              {friends.length ? (
+                <View style={styles.friendsRow}>
+                  {friends.slice(0, 4).map((friend) => (
+                    <Avatar color={friend.color} key={friend.id} name={friend.name} size={20} />
+                  ))}
+                  <Text style={[text.caption1Secondary, styles.flex]}>
+                    {friends.map((friend) => friend.name.split(' ')[0]).join(', ')}{' '}
+                    {friends.length === 1 ? 'is' : 'are'} going to this one
+                  </Text>
+                </View>
+              ) : null}
+            </Cell>
+          );
+        })}
+      </GroupedSection>
+
+      {friendsGoing.length ? (
+        <GroupedSection header="Friends going">
+          {friendsGoing.map((friend) => (
+            <Row
+              accessory="chevron"
+              key={friend.id}
+              leading={<Avatar color={friend.color} name={friend.name} size={28} />}
+              onPress={() => navigation.navigate('FriendAgenda', { friendId: friend.id, friendName: friend.name })}
+              title={friend.name}
+            />
+          ))}
+        </GroupedSection>
+      ) : null}
+
+      <GroupedSection>
+        <Row
+          leading={<Icon {...icons.calendarAdd} color={colors.tint} size={20} />}
+          onPress={addToCalendar}
+          tinted
+          title="Add to Calendar"
+        />
+        <Row
+          leading={<Icon {...icons.share} color={colors.tint} size={20} />}
+          onPress={() => shareSession(session, selectedTimes[0]).catch(() => undefined)}
+          tinted
+          title="Share with a friend"
+        />
+        <Row
+          leading={<Icon {...icons.openExternal} color={colors.tint} size={20} />}
+          onPress={() => Linking.openURL(session.officialUrl)}
+          tinted
+          title="Official session page"
+        />
+      </GroupedSection>
+
+      {session.requiredEquipment.length ? (
+        <View style={styles.equipment}>
+          <Icon {...icons.laptop} color={colors.orange} size={20} />
+          <Text style={[text.subheadline, styles.flex]}>{session.requiredEquipment.join(' ')}</Text>
+        </View>
+      ) : null}
+
+      {session.objectives.length ? (
+        <GroupedSection header="What you’ll learn">
+          {session.objectives.map((objective) => (
+            <Row
+              key={objective}
+              leading={<Icon {...icons.added} color={colors.green} size={20} />}
+              title={objective}
+              titleStyle={text.subheadline}
+            />
+          ))}
+        </GroupedSection>
+      ) : null}
+
+      <GroupedSection header="Details">
+        {(
+          [
             ['Products', session.products],
             ['Roles', session.roles],
             ['Topics', session.topics],
             ['Industries', session.industries],
-          ].map(([label, values]) => (
-            <View key={label as string} style={styles.metaSection}>
-              <Text style={styles.metaLabel}>{label as string}</Text>
-              <Text style={styles.metaValues}>{(values as string[]).join(' · ') || '—'}</Text>
-            </View>
+            ['Location', session.locations.slice(0, 1)],
+          ] as const
+        )
+          .filter(([, values]) => values.length)
+          .map(([label, values]) => (
+            <Row key={label} subtitle={values.join(' · ')} title={label} titleStyle={text.footnoteSecondary} />
           ))}
-        </View>
+      </GroupedSection>
 
-        {session.objectives.length ? (
-          <>
-            <Text style={styles.sectionTitle}>What you’ll learn</Text>
-            {session.objectives.map((objective) => (
-              <View key={objective} style={styles.objective}>
-                <Ionicons color={colors.green} name="checkmark-circle" size={20} />
-                <Text style={styles.objectiveText}>{objective}</Text>
-              </View>
-            ))}
-          </>
-        ) : null}
+      <NotesSection sessionId={session.id} userId={user?.id} />
 
-        <DisclaimerBanner />
-        <PrimaryButton
-          icon="open-outline"
-          onPress={() => Linking.openURL(session.officialUrl)}
-          title="View official session page"
-          variant="secondary"
-        />
-      </ScrollView>
-    </SafeAreaView>
+      <DisclaimerFooter />
+    </ScrollView>
   );
 }
 
+function NotesSection({ sessionId, userId }: { sessionId: string; userId?: string }) {
+  const note = useNote(sessionId);
+  const [draft, setDraft] = useState(note?.note ?? '');
+  const latest = useRef(draft);
+  latest.current = draft;
+
+  useEffect(() => {
+    setDraft(note?.note ?? '');
+  }, [note?.note]);
+
+  const commit = () => {
+    if ((note?.note ?? '') !== latest.current) saveNote(sessionId, { note: latest.current }, userId);
+  };
+
+  return (
+    <GroupedSection
+      footer={userId ? 'Notes and ratings sync with your account and stay private.' : 'Notes stay on this device until you sign in.'}
+      header="My notes"
+    >
+      <Cell>
+        <View accessibilityRole="radiogroup" style={styles.stars}>
+          {[1, 2, 3, 4, 5].map((value) => {
+            const filled = (note?.rating ?? 0) >= value;
+            return (
+              <Pressable
+                accessibilityLabel={`${value} star${value === 1 ? '' : 's'}`}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: note?.rating === value }}
+                hitSlop={6}
+                key={value}
+                onPress={() => saveNote(sessionId, { rating: note?.rating === value ? 0 : value }, userId)}
+              >
+                <Icon {...(filled ? icons.starFill : icons.star)} color={filled ? colors.orange : colors.tertiaryLabel} size={26} />
+              </Pressable>
+            );
+          })}
+          <Text style={[text.footnoteSecondary, styles.ratingLabel]}>
+            {note?.rating ? ['', 'Skip it', 'Meh', 'Good', 'Great', 'Must see'][note.rating] : 'Rate it'}
+          </Text>
+        </View>
+        <TextInput
+          accessibilityLabel="Session note"
+          multiline
+          onBlur={commit}
+          onChangeText={setDraft}
+          onEndEditing={commit}
+          placeholder="Questions to ask, people to meet, takeaways…"
+          placeholderTextColor={colors.placeholder}
+          style={styles.noteInput}
+          value={draft}
+        />
+      </Cell>
+    </GroupedSection>
+  );
+}
+
+function titleCase(value: string) {
+  return value.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.canvas },
-  content: { padding: spacing.xl, paddingBottom: 60, gap: spacing.lg },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2, gap: spacing.xl },
+  missing: { flex: 1, justifyContent: 'center' },
+  hero: { gap: spacing.md, paddingHorizontal: spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  title: { color: colors.ink, fontSize: 29, lineHeight: 35, fontWeight: '900' },
-  abstract: { color: colors.inkMuted, fontSize: 16, lineHeight: 24 },
-  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900', marginTop: spacing.sm },
-  timeList: { gap: spacing.md },
-  timeCard: {
+  speakers: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  flex: { flex: 1 },
+  timeCell: { paddingVertical: spacing.md },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  seating: { marginTop: 2 },
+  friendsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  equipment: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.lg,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
-  },
-  timeCardSelected: { borderColor: colors.green, backgroundColor: colors.greenSoft },
-  timeCopy: { flex: 1, gap: 3 },
-  timeTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
-  timeMeta: { color: colors.inkMuted, fontSize: 13, lineHeight: 18 },
-  seating: { color: colors.blue, fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
-  equipment: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
+    borderCurve: 'continuous',
     backgroundColor: colors.orangeSoft,
   },
-  equipmentText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: '700' },
-  metaGrid: {
-    backgroundColor: colors.white,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: spacing.lg,
-    gap: spacing.lg,
+  stars: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ratingLabel: { marginLeft: spacing.xs },
+  noteInput: {
+    ...text.body,
+    minHeight: 72,
+    paddingTop: spacing.sm,
+    textAlignVertical: 'top',
   },
-  metaSection: { gap: 4 },
-  metaLabel: { color: colors.inkMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
-  metaValues: { color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  objective: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  objectiveText: { flex: 1, color: colors.inkMuted, fontSize: 14, lineHeight: 21 },
 });

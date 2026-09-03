@@ -29,6 +29,8 @@ export type DreamforceSession = {
   community: string[];
   viewingOptions: string[];
   catalogBadges: string[];
+  /** Speaker names, when the importer captured them. */
+  speakers?: string[];
   times: SessionTime[];
 };
 
@@ -49,6 +51,12 @@ export type Catalog = {
 export type AgendaSelection = {
   sessionId: string;
   sessionTimeId: string;
+};
+
+/** A selection resolved against the catalog. */
+export type ResolvedAgendaItem = {
+  session: DreamforceSession;
+  time: SessionTime;
 };
 
 export type FilterKey =
@@ -85,4 +93,17 @@ export type SocialSnapshot = {
   friends: Array<{ friendship: Friendship; profile: FriendProfile }>;
   incoming: Array<{ friendship: Friendship; profile: FriendProfile }>;
   outgoing: Array<{ friendship: Friendship; profile: FriendProfile }>;
+};
+
+export type SessionNote = {
+  sessionId: string;
+  note: string;
+  /** 0 means unrated, otherwise 1–5. */
+  rating: number;
+  updatedAt: string;
+};
+
+export type Interests = {
+  products: string[];
+  roles: string[];
 };

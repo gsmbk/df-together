@@ -1,60 +1,53 @@
 import { supabase } from './supabase';
-import type {
-  AgendaSelection,
-  FriendProfile,
-  Friendship,
-  SocialSnapshot,
-} from '../types';
+import type { AgendaSelection, FriendProfile, Friendship, SocialSnapshot } from '../types';
 
 function requireSupabase() {
   if (!supabase) throw new Error('Supabase is not configured yet.');
   return supabase;
 }
 
+const profileColumns = 'id,display_name,avatar_color,share_agenda_with_friends';
+
+type FriendshipRow = Friendship & {
+  requester: FriendProfile | FriendProfile[] | null;
+  addressee: FriendProfile | FriendProfile[] | null;
+};
+
+function single<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+/**
+ * One round trip: friendships with both profiles embedded through the foreign
+ * keys. Row-level security hides profiles we have no active relationship with,
+ * so rejected relationships simply come back without a profile and are skipped.
+ */
 export async function loadSocialSnapshot(userId: string): Promise<SocialSnapshot> {
   const client = requireSupabase();
-  const { data: relationshipRows, error } = await client
+  const { data, error } = await client
     .from('friendships')
-    .select('id,requester_id,addressee_id,status,created_at')
+    .select(
+      `id,requester_id,addressee_id,status,created_at,` +
+        `requester:profiles!friendships_requester_id_fkey(${profileColumns}),` +
+        `addressee:profiles!friendships_addressee_id_fkey(${profileColumns})`,
+    )
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
     .order('created_at', { ascending: false });
   if (error) throw error;
 
-  const relationships = (relationshipRows ?? []) as Friendship[];
-  const profileIds = relationships.map((relationship) =>
-    relationship.requester_id === userId
-      ? relationship.addressee_id
-      : relationship.requester_id,
-  );
-  const { data: profileRows, error: profileError } = profileIds.length
-    ? await client
-        .from('profiles')
-        .select('id,display_name,avatar_color,share_agenda_with_friends')
-        .in('id', profileIds)
-    : { data: [], error: null };
-  if (profileError) throw profileError;
-
-  const profileMap = new Map(
-    ((profileRows ?? []) as FriendProfile[]).map((profile) => [profile.id, profile]),
-  );
-  const withProfiles = relationships.flatMap((friendship) => {
-    const friendId =
-      friendship.requester_id === userId
-        ? friendship.addressee_id
-        : friendship.requester_id;
-    const profile = profileMap.get(friendId);
-    return profile ? [{ friendship, profile }] : [];
+  const withProfiles = ((data ?? []) as unknown as FriendshipRow[]).flatMap((row) => {
+    const { requester, addressee, ...friendship } = row;
+    const profile = single(friendship.requester_id === userId ? addressee : requester);
+    return profile ? [{ friendship: friendship as Friendship, profile }] : [];
   });
 
   return {
     friends: withProfiles.filter(({ friendship }) => friendship.status === 'accepted'),
     incoming: withProfiles.filter(
-      ({ friendship }) =>
-        friendship.status === 'pending' && friendship.addressee_id === userId,
+      ({ friendship }) => friendship.status === 'pending' && friendship.addressee_id === userId,
     ),
     outgoing: withProfiles.filter(
-      ({ friendship }) =>
-        friendship.status === 'pending' && friendship.requester_id === userId,
+      ({ friendship }) => friendship.status === 'pending' && friendship.requester_id === userId,
     ),
   };
 }
@@ -64,7 +57,7 @@ export async function sendFriendRequest(email: string) {
     friend_email: email.trim().toLowerCase(),
   });
   if (error) throw error;
-  return data;
+  return data as string | null;
 }
 
 export async function createFriendInvite() {
@@ -73,10 +66,7 @@ export async function createFriendInvite() {
   return data as string;
 }
 
-export async function updateFriendship(
-  friendshipId: string,
-  status: 'accepted' | 'rejected',
-) {
+export async function updateFriendship(friendshipId: string, status: 'accepted' | 'rejected') {
   const { error } = await requireSupabase()
     .from('friendships')
     .update({ status, responded_at: new Date().toISOString() })
@@ -85,10 +75,7 @@ export async function updateFriendship(
 }
 
 export async function removeFriendship(friendshipId: string) {
-  const { error } = await requireSupabase()
-    .from('friendships')
-    .delete()
-    .eq('id', friendshipId);
+  const { error } = await requireSupabase().from('friendships').delete().eq('id', friendshipId);
   if (error) throw error;
 }
 
@@ -108,16 +95,36 @@ export async function updateDisplayName(userId: string, displayName: string) {
   if (error) throw error;
 }
 
-export async function loadFriendAgenda(friendId: string) {
+function toSelections(rows: Array<{ session_id: unknown; session_time_id: unknown; user_id?: unknown }>) {
+  return rows.map(
+    (row): AgendaSelection & { userId: string } => ({
+      userId: String(row.user_id ?? ''),
+      sessionId: row.session_id as string,
+      sessionTimeId: row.session_time_id as string,
+    }),
+  );
+}
+
+export async function loadFriendAgenda(friendId: string): Promise<AgendaSelection[]> {
   const { data, error } = await requireSupabase()
     .from('agenda_items')
     .select('session_id,session_time_id')
     .eq('user_id', friendId);
   if (error) throw error;
-  return (data ?? []).map(
-    (row): AgendaSelection => ({
-      sessionId: row.session_id as string,
-      sessionTimeId: row.session_time_id as string,
-    }),
-  );
+  return toSelections(data ?? []).map(({ sessionId, sessionTimeId }) => ({ sessionId, sessionTimeId }));
+}
+
+/** Agendas of every friend who shares, grouped by friend, in one query. */
+export async function loadFriendAgendas(friendIds: string[]) {
+  const byFriend: Record<string, AgendaSelection[]> = {};
+  if (!friendIds.length) return byFriend;
+  const { data, error } = await requireSupabase()
+    .from('agenda_items')
+    .select('user_id,session_id,session_time_id')
+    .in('user_id', friendIds);
+  if (error) throw error;
+  for (const row of toSelections(data ?? [])) {
+    (byFriend[row.userId] ??= []).push({ sessionId: row.sessionId, sessionTimeId: row.sessionTimeId });
+  }
+  return byFriend;
 }

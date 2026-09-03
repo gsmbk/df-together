@@ -1,214 +1,227 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { CompositeScreenProps } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
+import { useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { AgendaSyncBanner } from '../components/AgendaSyncBanner';
 import { Avatar } from '../components/Avatar';
-import { DisclaimerBanner } from '../components/DisclaimerBanner';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
+import { Cell, GroupedSection, Row } from '../components/GroupedList';
+import { Icon } from '../components/Icon';
+import { icons } from '../components/icons';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { useAgenda } from '../contexts/AgendaContext';
+import { useAgendaState } from '../contexts/AgendaContext';
 import { useAuth } from '../contexts/AuthContext';
 import { catalog } from '../data/catalog';
+import { showActions } from '../lib/actions';
+import { exportAgendaToCalendar } from '../lib/calendar';
+import { ensureNotificationPermission } from '../lib/reminders';
 import { updateAgendaSharing, updateDisplayName } from '../lib/social';
-import type { RootStackParamList, TabParamList } from '../navigation';
-import { colors, radii, spacing } from '../theme';
+import type { ProfileScreenProps } from '../navigation';
+import { updatePreferences, usePreferences } from '../state/preferences';
+import { useSalesforce } from '../state/salesforce';
+import { colors, spacing, text } from '../theme';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Profile'>,
-  NativeStackScreenProps<RootStackParamList>
->;
+const supportUrl = 'https://df-together.com/support';
+const privacyUrl = 'https://df-together.com/privacy';
 
-export function ProfileScreen({ navigation }: Props) {
+export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, profile, signOut, refreshProfile, configured } = useAuth();
-  const { selections } = useAgenda();
-  const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
-  const [sharing, setSharing] = useState(profile?.share_agenda_with_friends ?? false);
-  const [saving, setSaving] = useState(false);
+  const { resolved } = useAgendaState();
+  const preferences = usePreferences();
+  const salesforce = useSalesforce();
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
 
-  useEffect(() => {
-    setDisplayName(profile?.display_name ?? '');
-    setSharing(profile?.share_agenda_with_friends ?? false);
-  }, [profile]);
-
-  const updateSharing = async (enabled: boolean) => {
+  const setSharing = async (enabled: boolean) => {
     if (!user) return;
-    setSharing(enabled);
     try {
       await updateAgendaSharing(user.id, enabled);
       await refreshProfile();
     } catch (error) {
-      setSharing(!enabled);
       Alert.alert('Could not update sharing', (error as Error).message);
     }
   };
 
-  const saveName = async () => {
-    if (!user || displayName.trim().length < 2) return;
-    setSaving(true);
+  const saveName = async (value: string) => {
+    if (!user || value.trim().length < 2) return;
     try {
-      await updateDisplayName(user.id, displayName);
+      await updateDisplayName(user.id, value);
       await refreshProfile();
+      setNameDraft(null);
     } catch (error) {
-      Alert.alert('Could not save profile', (error as Error).message);
-    } finally {
-      setSaving(false);
+      Alert.alert('Could not save name', (error as Error).message);
     }
   };
 
+  const editName = () => {
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Display name',
+        'Friends see this name after connecting.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save', onPress: (value?: string) => void saveName(value ?? '') },
+        ],
+        'plain-text',
+        profile?.display_name ?? '',
+      );
+    } else {
+      setNameDraft(profile?.display_name ?? '');
+    }
+  };
+
+  const toggleReminders = async (enabled: boolean) => {
+    if (enabled && !(await ensureNotificationPermission())) {
+      Alert.alert('Notifications are off', 'Allow notifications for DF Together in Settings to get reminders.');
+      return;
+    }
+    updatePreferences({ remindersEnabled: enabled });
+  };
+
+  const chooseLeadTime = () =>
+    showActions({
+      title: 'Remind me before each session',
+      options: ([10, 15, 30] as const).map((minutes) => ({
+        label: `${minutes} minutes before`,
+        onPress: () => updatePreferences({ reminderLeadMinutes: minutes }),
+      })),
+    });
+
+  const exportAll = () =>
+    exportAgendaToCalendar(resolved)
+      .then((count) => Alert.alert('Added to Calendar', `${count} ${count === 1 ? 'event' : 'events'} created.`))
+      .catch((error) => Alert.alert('Could not add to Calendar', (error as Error).message));
+
+  const interestCount = preferences.interests.products.length + preferences.interests.roles.length;
+
   return (
-    <SafeAreaView edges={['top']} style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>PROFILE & PRIVACY</Text>
-        <Text style={styles.title}>You’re in control</Text>
-        <AgendaSyncBanner />
+    <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
+      <AgendaSyncBanner />
 
-        {user && profile ? (
-          <>
-            <View style={styles.profileCard}>
-              <Avatar color={profile.avatar_color} name={profile.display_name} size={64} />
-              <View style={styles.profileCopy}>
-                <Text style={styles.profileName}>{profile.display_name}</Text>
-                <Text style={styles.email}>{user.email}</Text>
-              </View>
+      {user && profile ? (
+        <GroupedSection>
+          <Cell style={styles.account}>
+            <Avatar color={profile.avatar_color} name={profile.display_name} size={56} />
+            <View style={styles.flex}>
+              <Text style={text.title3}>{profile.display_name}</Text>
+              <Text style={text.footnoteSecondary}>{user.email ?? 'Signed in with Apple'}</Text>
             </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Display name</Text>
-              <Text style={styles.cardBody}>Friends see this name after connecting.</Text>
+          </Cell>
+          {nameDraft !== null ? (
+            <Cell style={styles.nameEdit}>
               <TextInput
+                autoFocus
                 maxLength={60}
-                onChangeText={setDisplayName}
+                onChangeText={setNameDraft}
+                onSubmitEditing={() => saveName(nameDraft)}
                 placeholder="Your name"
-                style={styles.input}
-                value={displayName}
+                style={[text.body, styles.flex]}
+                value={nameDraft}
               />
-              <PrimaryButton
-                compact
-                disabled={displayName.trim() === profile.display_name}
-                loading={saving}
-                onPress={saveName}
-                title="Save name"
+              <PrimaryButton compact onPress={() => saveName(nameDraft)} title="Save" />
+            </Cell>
+          ) : (
+            <Row accessory="chevron" detail={profile.display_name} onPress={editName} title="Display name" />
+          )}
+          <Row
+            title="Share my agenda with friends"
+            trailing={
+              <Switch
+                accessibilityLabel="Share my agenda with friends"
+                onValueChange={setSharing}
+                trackColor={{ true: colors.green as string }}
+                value={profile.share_agenda_with_friends}
               />
-            </View>
+            }
+          />
+        </GroupedSection>
+      ) : (
+        <GroupedSection
+          footer={
+            configured
+              ? `Sign in to sync your ${resolved.length} selected ${resolved.length === 1 ? 'session' : 'sessions'} across devices and connect with friends.`
+              : 'Add the Supabase project URL and publishable key to .env to enable accounts.'
+          }
+        >
+          <Row
+            leading={<Icon {...icons.person} color={colors.tint} size={22} />}
+            onPress={() => navigation.navigate('Auth')}
+            tinted
+            title="Sign in"
+          />
+        </GroupedSection>
+      )}
 
-            <View style={styles.card}>
-              <View style={styles.switchRow}>
-                <View style={styles.switchCopy}>
-                  <View style={styles.switchTitleRow}>
-                    <Ionicons color={colors.blue} name="calendar-outline" size={20} />
-                    <Text style={styles.cardTitle}>Share my agenda</Text>
-                  </View>
-                  <Text style={styles.cardBody}>
-                    Off by default. When on, only accepted friends can view your selected
-                    sessions.
-                  </Text>
-                </View>
-                <Switch
-                  onValueChange={updateSharing}
-                  trackColor={{ false: colors.lineStrong, true: colors.green }}
-                  value={sharing}
-                />
-              </View>
-            </View>
-
-            <PrimaryButton
-              onPress={() => signOut().catch((error) => Alert.alert(error.message))}
-              title="Sign out"
-              variant="danger"
+      <GroupedSection
+        footer="Reminders are local notifications for sessions on your agenda. Nothing leaves your device."
+        header="Planning"
+      >
+        <Row
+          accessory="chevron"
+          detail={interestCount ? `${interestCount} selected` : 'None'}
+          leading={<Icon {...icons.sparkles} color={colors.purple} size={20} />}
+          onPress={() => navigation.navigate('Interests')}
+          title="Interests"
+        />
+        <Row
+          leading={<Icon {...icons.bell} color={colors.red} size={20} />}
+          title="Session reminders"
+          trailing={
+            <Switch
+              accessibilityLabel="Session reminders"
+              onValueChange={toggleReminders}
+              trackColor={{ true: colors.green as string }}
+              value={preferences.remindersEnabled}
             />
-          </>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {configured ? 'Sign in to sync and share' : 'Connect Supabase to enable social'}
-            </Text>
-            <Text style={styles.cardBody}>
-              Your {selections.length} locally selected sessions stay on this device until
-              you sign in.
-            </Text>
-            <PrimaryButton
-              icon="mail-outline"
-              onPress={() => navigation.navigate('Auth')}
-              title="Sign in with email"
-            />
-          </View>
-        )}
+          }
+        />
+        {preferences.remindersEnabled ? (
+          <Row accessory="chevron" detail={`${preferences.reminderLeadMinutes} min before`} onPress={chooseLeadTime} title="Remind me" />
+        ) : null}
+        <Row
+          accessory="chevron"
+          detail={salesforce.enabled ? `${salesforce.matches.length} matched` : 'Off'}
+          leading={<Icon {...icons.swap} color={colors.indigo} size={20} />}
+          onPress={() => navigation.navigate('SalesforceSync')}
+          subtitle="Compare your plan with the official Dreamforce agenda"
+          title="Official agenda"
+        />
+        <Row
+          disabled={!resolved.length}
+          leading={<Icon {...icons.calendarAdd} color={colors.tint} size={20} />}
+          onPress={exportAll}
+          subtitle={resolved.length ? `${resolved.length} ${resolved.length === 1 ? 'session' : 'sessions'} with 15-minute alerts` : 'Add sessions to your agenda first'}
+          tinted
+          title="Add agenda to Calendar"
+        />
+      </GroupedSection>
 
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{selections.length}</Text>
-            <Text style={styles.statLabel}>My sessions</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{catalog.metadata.sessionCount}</Text>
-            <Text style={styles.statLabel}>Catalog sessions</Text>
-          </View>
-        </View>
+      <GroupedSection header="About">
+        <Row detail={catalog.metadata.sessionCount.toLocaleString()} title="Sessions in catalog" />
+        <Row detail={new Date(catalog.metadata.importedAt).toLocaleDateString()} title="Catalog updated" />
+        <Row accessory="chevron" onPress={() => Linking.openURL(catalog.metadata.sourceUrl)} title="Official Dreamforce catalog" />
+        <Row accessory="chevron" onPress={() => Linking.openURL(privacyUrl)} title="Privacy" />
+        <Row accessory="chevron" onPress={() => Linking.openURL(supportUrl)} title="Support" />
+      </GroupedSection>
 
-        <DisclaimerBanner />
-        <Text style={styles.imported}>
-          Catalog imported {new Date(catalog.metadata.importedAt).toLocaleDateString()}
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      {user ? (
+        <GroupedSection>
+          <Row
+            destructive
+            onPress={() =>
+              signOut().catch((error) => Alert.alert('Could not sign out', (error as Error).message))
+            }
+            title="Sign out"
+          />
+        </GroupedSection>
+      ) : null}
+
+      <DisclaimerFooter />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.canvas },
-  content: { padding: spacing.xl, paddingBottom: 60, gap: spacing.lg },
-  eyebrow: { color: colors.blueBright, fontSize: 11, fontWeight: '900', letterSpacing: 1.4 },
-  title: { color: colors.ink, fontSize: 31, fontWeight: '900' },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  profileCopy: { flex: 1, gap: 4 },
-  profileName: { color: colors.ink, fontSize: 21, fontWeight: '900' },
-  email: { color: colors.inkMuted, fontSize: 13 },
-  card: {
-    padding: spacing.lg,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
-    gap: spacing.md,
-  },
-  cardTitle: { color: colors.ink, fontSize: 17, fontWeight: '900' },
-  cardBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 19 },
-  input: {
-    minHeight: 46,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    color: colors.ink,
-    fontSize: 15,
-  },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  switchCopy: { flex: 1, gap: spacing.sm },
-  switchTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stats: { flexDirection: 'row', gap: spacing.md },
-  stat: {
-    flex: 1,
-    padding: spacing.lg,
-    borderRadius: radii.md,
-    backgroundColor: colors.blueSoft,
-  },
-  statValue: { color: colors.blue, fontSize: 26, fontWeight: '900' },
-  statLabel: { color: colors.inkMuted, fontSize: 12, marginTop: 3 },
-  imported: { color: colors.inkMuted, fontSize: 11, textAlign: 'center' },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2, gap: spacing.xl },
+  flex: { flex: 1 },
+  account: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.lg },
+  nameEdit: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 });

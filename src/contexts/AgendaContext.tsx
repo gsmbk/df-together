@@ -10,6 +10,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import { AppState } from 'react-native';
+import { overlappingTimes, resolveSelections, timeIndex } from '../data/catalog';
 import {
   agendaItemsFromSelections,
   applyAgendaMutations,
@@ -19,7 +20,7 @@ import {
   type PendingAgendaMutations,
 } from '../lib/agenda-sync';
 import { supabase } from '../lib/supabase';
-import type { AgendaSelection } from '../types';
+import type { AgendaSelection, ResolvedAgendaItem, SessionTime } from '../types';
 import { useAuth } from './AuthContext';
 
 const AGENDA_STORAGE_PREFIX = 'df-together.agenda.v1';
@@ -47,21 +48,40 @@ function parseStoredValue<T>(value: string | null, fallback: T): T {
   }
 }
 
-type AgendaContextValue = {
+/**
+ * Reactive agenda data. Anything that renders selection state subscribes here
+ * and re-renders when the agenda changes.
+ */
+export type AgendaState = {
   hydrated: boolean;
   selections: AgendaSelection[];
   selectedTimeIds: Set<string>;
+  /** Selections resolved against the catalog, sorted by start time. */
+  resolved: ResolvedAgendaItem[];
   pendingChangeCount: number;
   syncing: boolean;
   syncError: string | null;
+};
+
+/**
+ * Stable callbacks. Subscribing here never causes a re-render, so list rows
+ * can call `add`/`remove` without re-rendering on every agenda change.
+ */
+export type AgendaActions = {
   add: (selection: AgendaSelection) => Promise<void>;
   remove: (sessionTimeId: string) => Promise<void>;
   toggle: (selection: AgendaSelection) => Promise<void>;
-  isSelected: (sessionTimeId: string) => boolean;
+  /** Replace one occurrence with another in a single local commit. */
+  swap: (fromSessionTimeId: string, to: AgendaSelection) => Promise<void>;
   retrySync: () => Promise<void>;
+  /** Agenda items that overlap the given occurrence (excluding itself). */
+  findConflicts: (time: SessionTime, excludeTimeId?: string) => ResolvedAgendaItem[];
+  /** Non-reactive membership check for event handlers. */
+  isSelected: (sessionTimeId: string) => boolean;
 };
 
-const AgendaContext = createContext<AgendaContextValue | null>(null);
+const AgendaStateContext = createContext<AgendaState | null>(null);
+const AgendaActionsContext = createContext<AgendaActions | null>(null);
 
 export function AgendaProvider({ children }: PropsWithChildren) {
   const { user, loading: authLoading } = useAuth();
@@ -80,6 +100,10 @@ export function AgendaProvider({ children }: PropsWithChildren) {
   const syncPromiseRef = useRef<Promise<boolean> | null>(null);
   const syncOwnerRef = useRef<string | null>(null);
   const storageWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const userRef = useRef(user);
+  userRef.current = user;
+  const readyRef = useRef({ hydrated: false, activeOwner: null as string | null, owner });
+  readyRef.current = { hydrated, activeOwner, owner };
 
   const makeRevision = useCallback(() => {
     mutationCounterRef.current += 1;
@@ -87,11 +111,7 @@ export function AgendaProvider({ children }: PropsWithChildren) {
   }, []);
 
   const persistOwnerState = useCallback(
-    (
-      stateOwner: string,
-      nextItems: AgendaItems,
-      nextPending: PendingAgendaMutations,
-    ) => {
+    (stateOwner: string, nextItems: AgendaItems, nextPending: PendingAgendaMutations) => {
       const write = storageWriteRef.current
         .catch(() => undefined)
         .then(() =>
@@ -125,7 +145,7 @@ export function AgendaProvider({ children }: PropsWithChildren) {
         [],
       );
       let nextItems = agendaItemsFromSelections(savedSelections);
-      let nextPending = parseStoredValue<PendingAgendaMutations>(
+      const nextPending = parseStoredValue<PendingAgendaMutations>(
         storedValues.get(pendingStorageKey(owner)) ?? null,
         {},
       );
@@ -136,10 +156,7 @@ export function AgendaProvider({ children }: PropsWithChildren) {
           [],
         );
         if (guestSelections.length) {
-          nextItems = {
-            ...nextItems,
-            ...agendaItemsFromSelections(guestSelections),
-          };
+          nextItems = { ...nextItems, ...agendaItemsFromSelections(guestSelections) };
           for (const selection of guestSelections) {
             nextPending[selection.sessionTimeId] = {
               revision: makeRevision(),
@@ -171,9 +188,7 @@ export function AgendaProvider({ children }: PropsWithChildren) {
       setPendingChangeCount(0);
       setActiveOwner(owner);
       setHydrated(true);
-      setSyncError(
-        `Could not load the agenda saved on this device: ${(error as Error).message}`,
-      );
+      setSyncError(`Could not load the agenda saved on this device: ${(error as Error).message}`);
     });
 
     return () => {
@@ -182,33 +197,31 @@ export function AgendaProvider({ children }: PropsWithChildren) {
   }, [activeOwner, authLoading, makeRevision, owner, persistOwnerState]);
 
   const runSync = useCallback(async (): Promise<boolean> => {
-    if (!supabase || !user || !hydrated || activeOwner !== user.id) return true;
+    const currentUser = userRef.current;
+    const ready = readyRef.current;
+    if (!supabase || !currentUser || !ready.hydrated || ready.activeOwner !== currentUser.id) {
+      return true;
+    }
     if (syncPromiseRef.current) {
       const existingOwner = syncOwnerRef.current;
       const existingResult = await syncPromiseRef.current;
-      if (existingOwner === user.id) return existingResult;
+      if (existingOwner === currentUser.id) return existingResult;
       if (syncPromiseRef.current) return syncPromiseRef.current;
     }
 
     const client = supabase;
-    const syncOwner = user.id;
+    const syncOwner = currentUser.id;
     const generation = ownerGenerationRef.current;
     const task = (async () => {
       setSyncing(true);
       setSyncError(null);
       try {
         const [{ data, error }, migrationComplete] = await Promise.all([
-          client
-            .from('agenda_items')
-            .select('session_id,session_time_id')
-            .eq('user_id', syncOwner),
+          client.from('agenda_items').select('session_id,session_time_id').eq('user_id', syncOwner),
           AsyncStorage.getItem(migrationStorageKey(syncOwner)),
         ]);
         if (error) throw error;
-        if (
-          ownerGenerationRef.current !== generation ||
-          activeOwnerRef.current !== syncOwner
-        ) {
+        if (ownerGenerationRef.current !== generation || activeOwnerRef.current !== syncOwner) {
           return true;
         }
 
@@ -222,10 +235,7 @@ export function AgendaProvider({ children }: PropsWithChildren) {
         if (migrationComplete !== '1') {
           const migratedPending = { ...pendingRef.current };
           for (const selection of Object.values(itemsRef.current)) {
-            if (
-              !remoteItems[selection.sessionTimeId] &&
-              !migratedPending[selection.sessionTimeId]
-            ) {
+            if (!remoteItems[selection.sessionTimeId] && !migratedPending[selection.sessionTimeId]) {
               migratedPending[selection.sessionTimeId] = {
                 revision: makeRevision(),
                 selection,
@@ -254,28 +264,18 @@ export function AgendaProvider({ children }: PropsWithChildren) {
         }
         if (deletions.length) {
           writes.push(
-            client
-              .from('agenda_items')
-              .delete()
-              .eq('user_id', syncOwner)
-              .in('session_time_id', deletions),
+            client.from('agenda_items').delete().eq('user_id', syncOwner).in('session_time_id', deletions),
           );
         }
         const writeResults = await Promise.all(writes);
         const writeError = writeResults.find((result) => result.error)?.error;
         if (writeError) throw writeError;
 
-        if (
-          ownerGenerationRef.current !== generation ||
-          activeOwnerRef.current !== syncOwner
-        ) {
+        if (ownerGenerationRef.current !== generation || activeOwnerRef.current !== syncOwner) {
           return true;
         }
 
-        const remainingPending = clearFlushedAgendaMutations(
-          pendingRef.current,
-          pendingSnapshot,
-        );
+        const remainingPending = clearFlushedAgendaMutations(pendingRef.current, pendingSnapshot);
         const syncedItems = applyAgendaMutations(remoteItems, pendingSnapshot);
         const nextItems = applyAgendaMutations(syncedItems, remainingPending);
         itemsRef.current = nextItems;
@@ -287,20 +287,14 @@ export function AgendaProvider({ children }: PropsWithChildren) {
         setSyncError(null);
         return true;
       } catch (error) {
-        if (
-          ownerGenerationRef.current === generation &&
-          activeOwnerRef.current === syncOwner
-        ) {
+        if (ownerGenerationRef.current === generation && activeOwnerRef.current === syncOwner) {
           setSyncError(
             `Your agenda is saved on this device, but it could not sync yet: ${(error as Error).message}`,
           );
         }
         return false;
       } finally {
-        if (
-          ownerGenerationRef.current === generation &&
-          activeOwnerRef.current === syncOwner
-        ) {
+        if (ownerGenerationRef.current === generation && activeOwnerRef.current === syncOwner) {
           setSyncing(false);
         }
       }
@@ -314,10 +308,10 @@ export function AgendaProvider({ children }: PropsWithChildren) {
       syncOwnerRef.current = null;
     }
     return succeeded;
-  }, [activeOwner, hydrated, makeRevision, persistOwnerState, user?.id]);
+  }, [makeRevision, persistOwnerState]);
 
   const retrySync = useCallback(async () => {
-    const retryOwner = user?.id;
+    const retryOwner = userRef.current?.id;
     if (!retryOwner) return;
     let succeeded = await runSync();
     while (
@@ -327,12 +321,12 @@ export function AgendaProvider({ children }: PropsWithChildren) {
     ) {
       succeeded = await runSync();
     }
-  }, [runSync, user?.id]);
+  }, [runSync]);
 
   useEffect(() => {
     if (!user || !hydrated || activeOwner !== user.id) return;
     void retrySync();
-  }, [activeOwner, hydrated, retrySync, user?.id]);
+  }, [activeOwner, hydrated, retrySync, user]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -343,9 +337,11 @@ export function AgendaProvider({ children }: PropsWithChildren) {
 
   const commitLocalChange = useCallback(
     async (nextItems: AgendaItems, nextPending: PendingAgendaMutations) => {
-      if (!hydrated || activeOwner !== owner) {
+      const ready = readyRef.current;
+      if (!ready.hydrated || ready.activeOwner !== ready.owner) {
         throw new Error('Your agenda is still loading. Please try again.');
       }
+      const commitOwner = ready.owner;
       const previousItems = itemsRef.current;
       const previousPending = pendingRef.current;
       itemsRef.current = nextItems;
@@ -353,10 +349,10 @@ export function AgendaProvider({ children }: PropsWithChildren) {
       setItems(nextItems);
       setPendingChangeCount(Object.keys(nextPending).length);
       try {
-        await persistOwnerState(owner, nextItems, nextPending);
+        await persistOwnerState(commitOwner, nextItems, nextPending);
       } catch (error) {
         if (
-          activeOwnerRef.current === owner &&
+          activeOwnerRef.current === commitOwner &&
           itemsRef.current === nextItems &&
           pendingRef.current === nextPending
         ) {
@@ -367,96 +363,117 @@ export function AgendaProvider({ children }: PropsWithChildren) {
         }
         throw error;
       }
-      if (user) void retrySync();
+      if (userRef.current) void retrySync();
     },
-    [activeOwner, hydrated, owner, persistOwnerState, retrySync, user],
+    [persistOwnerState, retrySync],
+  );
+
+  const upsertMutation = useCallback(
+    (pending: PendingAgendaMutations, selection: AgendaSelection): PendingAgendaMutations =>
+      userRef.current
+        ? {
+            ...pending,
+            [selection.sessionTimeId]: { revision: makeRevision(), selection, type: 'upsert' as const },
+          }
+        : pending,
+    [makeRevision],
+  );
+
+  const deleteMutation = useCallback(
+    (pending: PendingAgendaMutations, sessionTimeId: string): PendingAgendaMutations =>
+      userRef.current
+        ? {
+            ...pending,
+            [sessionTimeId]: { revision: makeRevision(), sessionTimeId, type: 'delete' as const },
+          }
+        : pending,
+    [makeRevision],
   );
 
   const add = useCallback(
     async (selection: AgendaSelection) => {
-      const nextItems = {
-        ...itemsRef.current,
-        [selection.sessionTimeId]: selection,
-      };
-      const nextPending = user
-        ? {
-            ...pendingRef.current,
-            [selection.sessionTimeId]: {
-              revision: makeRevision(),
-              selection,
-              type: 'upsert' as const,
-            },
-          }
-        : pendingRef.current;
-      await commitLocalChange(nextItems, nextPending);
+      const nextItems = { ...itemsRef.current, [selection.sessionTimeId]: selection };
+      await commitLocalChange(nextItems, upsertMutation(pendingRef.current, selection));
     },
-    [commitLocalChange, makeRevision, user],
+    [commitLocalChange, upsertMutation],
   );
 
   const remove = useCallback(
     async (sessionTimeId: string) => {
       const nextItems = { ...itemsRef.current };
       delete nextItems[sessionTimeId];
-      const nextPending = user
-        ? {
-            ...pendingRef.current,
-            [sessionTimeId]: {
-              revision: makeRevision(),
-              sessionTimeId,
-              type: 'delete' as const,
-            },
-          }
-        : pendingRef.current;
-      await commitLocalChange(nextItems, nextPending);
+      await commitLocalChange(nextItems, deleteMutation(pendingRef.current, sessionTimeId));
     },
-    [commitLocalChange, makeRevision, user],
+    [commitLocalChange, deleteMutation],
   );
 
-  const selectedTimeIds = useMemo(() => new Set(Object.keys(items)), [items]);
+  const swap = useCallback(
+    async (fromSessionTimeId: string, to: AgendaSelection) => {
+      const nextItems = { ...itemsRef.current };
+      delete nextItems[fromSessionTimeId];
+      nextItems[to.sessionTimeId] = to;
+      const nextPending = upsertMutation(deleteMutation(pendingRef.current, fromSessionTimeId), to);
+      await commitLocalChange(nextItems, nextPending);
+    },
+    [commitLocalChange, deleteMutation, upsertMutation],
+  );
+
+  const isSelected = useCallback((sessionTimeId: string) => sessionTimeId in itemsRef.current, []);
+
   const toggle = useCallback(
     async (selection: AgendaSelection) => {
-      if (selectedTimeIds.has(selection.sessionTimeId)) {
+      if (isSelected(selection.sessionTimeId)) {
         await remove(selection.sessionTimeId);
       } else {
         await add(selection);
       }
     },
-    [add, remove, selectedTimeIds],
+    [add, isSelected, remove],
   );
 
-  const value = useMemo<AgendaContextValue>(
-    () => ({
+  const findConflicts = useCallback((time: SessionTime, excludeTimeId?: string) => {
+    const conflicts: ResolvedAgendaItem[] = [];
+    for (const sessionTimeId of Object.keys(itemsRef.current)) {
+      if (sessionTimeId === excludeTimeId || sessionTimeId === time.id) continue;
+      const item = timeIndex.get(sessionTimeId);
+      if (item && overlappingTimes(item.time, time)) conflicts.push(item);
+    }
+    return conflicts.sort((a, b) => a.time.startAt.localeCompare(b.time.startAt));
+  }, []);
+
+  const actions = useMemo<AgendaActions>(
+    () => ({ add, remove, toggle, swap, retrySync, findConflicts, isSelected }),
+    [add, findConflicts, isSelected, remove, retrySync, swap, toggle],
+  );
+
+  const state = useMemo<AgendaState>(() => {
+    const selections = Object.values(items);
+    return {
       hydrated,
-      selections: Object.values(items),
-      selectedTimeIds,
+      selections,
+      selectedTimeIds: new Set(Object.keys(items)),
+      resolved: resolveSelections(selections),
       pendingChangeCount,
       syncing,
       syncError,
-      add,
-      remove,
-      toggle,
-      isSelected: (sessionTimeId) => selectedTimeIds.has(sessionTimeId),
-      retrySync,
-    }),
-    [
-      add,
-      hydrated,
-      items,
-      pendingChangeCount,
-      remove,
-      retrySync,
-      selectedTimeIds,
-      syncError,
-      syncing,
-      toggle,
-    ],
-  );
+    };
+  }, [hydrated, items, pendingChangeCount, syncError, syncing]);
 
-  return <AgendaContext.Provider value={value}>{children}</AgendaContext.Provider>;
+  return (
+    <AgendaActionsContext.Provider value={actions}>
+      <AgendaStateContext.Provider value={state}>{children}</AgendaStateContext.Provider>
+    </AgendaActionsContext.Provider>
+  );
 }
 
-export function useAgenda() {
-  const context = useContext(AgendaContext);
-  if (!context) throw new Error('useAgenda must be used inside AgendaProvider');
+export function useAgendaState() {
+  const context = useContext(AgendaStateContext);
+  if (!context) throw new Error('useAgendaState must be used inside AgendaProvider');
+  return context;
+}
+
+export function useAgendaActions() {
+  const context = useContext(AgendaActionsContext);
+  if (!context) throw new Error('useAgendaActions must be used inside AgendaProvider');
   return context;
 }
