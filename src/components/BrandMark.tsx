@@ -2,36 +2,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 
-export function BrandMark({ inverted = false, size = 48 }: { inverted?: boolean; size?: number }) {
+/** The original DF Together mark: a blue superellipse with a green orbit dot. */
+export function BrandMark({ size = 64 }: { size?: number }) {
   return (
     <LinearGradient
-      colors={inverted ? [colors.white, colors.cloud] : [colors.blueVivid, colors.blueBright]}
+      colors={[colors.brandBlueVivid, colors.brandBlue]}
       end={{ x: 1, y: 1 }}
       start={{ x: 0, y: 0 }}
-      style={[
-        styles.mark,
-        {
-          width: size,
-          height: size,
-          borderRadius: size * 0.32,
-          boxShadow: `0 ${Math.max(4, size * 0.1)}px ${Math.max(10, size * 0.24)}px rgba(3, 45, 96, 0.16)`,
-        },
-      ]}
+      style={[styles.mark, { width: size, height: size, borderRadius: size * 0.225 }]}
     >
-      <Text
-        style={[
-          styles.text,
-          { color: inverted ? colors.navy : colors.white, fontSize: size * 0.34 },
-        ]}
-      >
-        DF
-      </Text>
+      <Text style={[styles.text, { fontSize: size * 0.36 }]}>DF</Text>
       <View
         style={[
           styles.dot,
           {
-            width: size * 0.16,
-            height: size * 0.16,
+            width: size * 0.18,
+            height: size * 0.18,
             borderRadius: size,
             borderWidth: Math.max(2, size * 0.04),
           },
@@ -48,12 +34,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderCurve: 'continuous',
   },
-  text: { fontWeight: '900', letterSpacing: -0.6 },
+  text: { color: colors.white, fontWeight: '800', letterSpacing: -0.5 },
   dot: {
     position: 'absolute',
-    top: '12%',
-    right: '10%',
-    backgroundColor: colors.greenBright,
+    top: '13%',
+    right: '11%',
+    backgroundColor: colors.brandGreen,
     borderColor: colors.white,
   },
 });

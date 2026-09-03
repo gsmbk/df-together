@@ -151,6 +151,11 @@ async function extractSessions(page) {
           ...valuesFor(card, 'objective3'),
         ],
         community: valuesFor(card, 'community'),
+        // Best effort: RainFocus renders speakers outside the badge attributes. Empty
+        // until the selector is confirmed against the live catalog markup.
+        speakers: [...card.querySelectorAll('[data-test="speaker-name"], .speaker-name, .rf-speaker-name')]
+          .map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+          .filter(Boolean),
         viewingOptions: valuesFor(card, 'viewingoptions'),
         catalogBadges,
         times,
@@ -188,6 +193,7 @@ async function main() {
         requiredEquipment: unique(session.requiredEquipment),
         objectives: unique(session.objectives),
         community: unique(session.community),
+        speakers: unique(session.speakers ?? []),
         viewingOptions: unique(session.viewingOptions),
         catalogBadges: unique(session.catalogBadges),
         times: session.times.map((time) => ({

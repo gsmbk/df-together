@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0176d3" />
+    <meta name="description" content="A friend shared a Dreamforce 2026 session with you. Open it in DF Together to add it to your plan." />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="stylesheet" href="/styles.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DF Together" />
+    <meta property="og:title" content="Want to go to this Dreamforce session together?" />
+    <meta property="og:description" content="Open the session in DF Together, add it to your agenda, and see if your friends are going too." />
+    <meta property="og:image" content="https://df-together.com/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Dreamforce session · DF Together</title>
+  </head>
+  <body>
+    <header class="site-header compact-header">
+      <a class="brand" href="/" aria-label="DF Together home">
+        <span class="brand-mark" aria-hidden="true">DF</span>
+        <span>DF Together</span>
+      </a>
+      <span class="status-pill"><span aria-hidden="true"></span> Independent planner</span>
+    </header>
+    <main class="handoff-shell">
+      <section class="handoff-card">
+        <div class="handoff-mark" aria-hidden="true">↗</div>
+        <p class="eyebrow">A FRIEND SHARED A SESSION</p>
+        <h1>Want to go together?</h1>
+        <p id="session-message">
+          Open this Dreamforce 2026 session in DF Together to add it to your agenda and see which friends are going.
+        </p>
+        <a class="button button-primary" id="open-app" href="dftogether://">Open in DF Together</a>
+        <a class="button button-secondary" id="official-link" href="https://reg.salesforce.com/flow/plus/df26/sessioncatalog/page/catalog" rel="noopener">View on the official catalog</a>
+        <a class="button button-secondary is-disabled" data-testflight-link href="#">iPhone beta coming soon</a>
+      </section>
+      <p class="handoff-disclaimer">
+        Independent planning companion. This does not reserve a seat or update your official Dreamforce agenda.
+      </p>
+    </main>
+    <script src="/config.js"></script>
+    <script src="/site.js"></script>
+    <script src="/session.js"></script>
+  </body>
+</html>

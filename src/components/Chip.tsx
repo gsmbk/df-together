@@ -1,14 +1,17 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radii, spacing } from '../theme';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, radii, spacing, type } from '../theme';
+
+type Tone = 'tint' | 'purple' | 'green' | 'orange' | 'neutral';
 
 type Props = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
-  tone?: 'blue' | 'purple' | 'green' | 'orange';
+  tone?: Tone;
 };
 
-export function Chip({ label, selected, onPress, tone = 'blue' }: Props) {
+/** Small capsule tag. Selected chips fill with the tint, like iOS filter pills. */
+export function Chip({ label, selected, onPress, tone = 'tint' }: Props) {
   const content = (
     <Text style={[styles.label, styles[`${tone}Label`], selected && styles.selectedLabel]}>
       {label}
@@ -16,7 +19,7 @@ export function Chip({ label, selected, onPress, tone = 'blue' }: Props) {
   );
 
   if (!onPress) {
-    return <Text style={[styles.base, styles[tone]]}>{content}</Text>;
+    return <View style={[styles.base, styles[tone]]}>{content}</View>;
   }
 
   return (
@@ -26,6 +29,7 @@ export function Chip({ label, selected, onPress, tone = 'blue' }: Props) {
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
+        styles.pressable,
         styles[tone],
         selected && styles.selected,
         pressed && styles.pressed,
@@ -39,20 +43,23 @@ export function Chip({ label, selected, onPress, tone = 'blue' }: Props) {
 const styles = StyleSheet.create({
   base: {
     borderRadius: radii.pill,
-    paddingVertical: 7,
-    paddingHorizontal: spacing.md,
-    overflow: 'hidden',
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm + 2,
+    alignSelf: 'flex-start',
   },
-  blue: { backgroundColor: colors.blueSoft },
+  pressable: { minHeight: 32, paddingVertical: 7, paddingHorizontal: spacing.md, justifyContent: 'center' },
+  tint: { backgroundColor: colors.tintSoft },
   purple: { backgroundColor: colors.purpleSoft },
   green: { backgroundColor: colors.greenSoft },
   orange: { backgroundColor: colors.orangeSoft },
-  selected: { backgroundColor: colors.navy },
-  pressed: { opacity: 0.72 },
-  label: { fontSize: 12, fontWeight: '700' },
-  blueLabel: { color: colors.blue },
+  neutral: { backgroundColor: colors.tertiaryFill },
+  selected: { backgroundColor: colors.tint },
+  pressed: { opacity: 0.7 },
+  label: { ...type.caption1, fontWeight: '600' },
+  tintLabel: { color: colors.tint },
   purpleLabel: { color: colors.purple },
   greenLabel: { color: colors.green },
   orangeLabel: { color: colors.orange },
-  selectedLabel: { color: colors.white },
+  neutralLabel: { color: colors.secondaryLabel },
+  selectedLabel: { color: colors.onTint },
 });

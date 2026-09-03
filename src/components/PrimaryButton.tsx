@@ -1,5 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,34 +6,50 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { colors, radii, spacing } from '../theme';
+import { colors, radii, spacing, type } from '../theme';
+import { Icon } from './Icon';
+import type { IconSpec } from './icons';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+type Variant = 'filled' | 'tinted' | 'gray' | 'plain' | 'destructive';
 
 type Props = {
   title: string;
   onPress: () => void;
-  icon?: IconName;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  icon?: IconSpec;
+  variant?: Variant;
   disabled?: boolean;
   loading?: boolean;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
 };
 
+const labelColors: Record<Variant, typeof colors.tint> = {
+  filled: colors.onTint,
+  tinted: colors.tint,
+  gray: colors.label,
+  plain: colors.tint,
+  destructive: colors.red,
+};
+
+/** iOS 15-style bordered button: filled, tinted, gray, plain, or destructive. */
 export function PrimaryButton({
   title,
   onPress,
   icon,
-  variant = 'primary',
+  variant = 'filled',
   disabled,
   loading,
   compact,
   style,
+  accessibilityLabel,
 }: Props) {
+  const color = labelColors[variant];
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
@@ -48,20 +62,11 @@ export function PrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? colors.white : colors.blue}
-          size="small"
-        />
+        <ActivityIndicator color={color} size="small" />
       ) : (
         <>
-          {icon ? (
-            <Ionicons
-              color={variant === 'primary' ? colors.white : colors.blue}
-              name={icon}
-              size={compact ? 16 : 19}
-            />
-          ) : null}
-          <Text style={[styles.label, styles[`${variant}Label`]]}>{title}</Text>
+          {icon ? <Icon {...icon} color={color} size={compact ? 16 : 18} weight="semibold" /> : null}
+          <Text style={[compact ? styles.compactLabel : styles.label, { color }]}>{title}</Text>
         </>
       )}
     </Pressable>
@@ -70,25 +75,23 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
-    borderRadius: radii.pill,
+    minHeight: 50,
+    borderRadius: radii.lg,
+    borderCurve: 'continuous',
     paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    borderWidth: 1,
   },
-  compact: { minHeight: 38, paddingHorizontal: spacing.lg },
-  primary: { backgroundColor: colors.blueBright, borderColor: colors.blueBright },
-  secondary: { backgroundColor: colors.white, borderColor: colors.blueBright },
-  danger: { backgroundColor: colors.white, borderColor: colors.red },
-  ghost: { backgroundColor: 'transparent', borderColor: 'transparent' },
-  disabled: { opacity: 0.48 },
-  pressed: { opacity: 0.76, transform: [{ scale: 0.99 }] },
-  label: { fontSize: 15, fontWeight: '700' },
-  primaryLabel: { color: colors.white },
-  secondaryLabel: { color: colors.blue },
-  dangerLabel: { color: colors.red },
-  ghostLabel: { color: colors.blue },
+  compact: { minHeight: 34, paddingHorizontal: spacing.lg, borderRadius: radii.md },
+  filled: { backgroundColor: colors.tint },
+  tinted: { backgroundColor: colors.tintSoft },
+  gray: { backgroundColor: colors.tertiaryFill },
+  plain: { backgroundColor: 'transparent' },
+  destructive: { backgroundColor: colors.redSoft },
+  disabled: { opacity: 0.4 },
+  pressed: { opacity: 0.6 },
+  label: { ...type.body, fontWeight: '600' },
+  compactLabel: { ...type.subheadline, fontWeight: '600' },
 });

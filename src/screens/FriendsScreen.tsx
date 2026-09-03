@@ -1,11 +1,7 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useFocusEffect, type CompositeScreenProps } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -16,46 +12,32 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { BrandMark } from '../components/BrandMark';
 import { EmptyState } from '../components/EmptyState';
+import { Cell, GroupedSection, Row } from '../components/GroupedList';
+import { Icon } from '../components/Icon';
+import { icons } from '../components/icons';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { useAgendaState } from '../contexts/AgendaContext';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  createFriendInvite,
-  loadSocialSnapshot,
-  sendFriendRequest,
-  updateFriendship,
-} from '../lib/social';
-import type { RootStackParamList, TabParamList } from '../navigation';
-import { colors, radii, spacing } from '../theme';
-import type { FriendProfile, Friendship, SocialSnapshot } from '../types';
+import { confirmDestructive, showActions } from '../lib/actions';
+import { createFriendInvite, removeFriendship, sendFriendRequest, updateFriendship } from '../lib/social';
+import type { FriendsScreenProps } from '../navigation';
+import { refreshSocial, useSocial } from '../state/social';
+import { colors, radii, spacing, text } from '../theme';
+import type { FriendProfile, Friendship } from '../types';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Friends'>,
-  NativeStackScreenProps<RootStackParamList>
->;
-
-const emptySnapshot: SocialSnapshot = { friends: [], incoming: [], outgoing: [] };
-
-export function FriendsScreen({ navigation }: Props) {
-  const { user, profile, authNotice } = useAuth();
-  const [snapshot, setSnapshot] = useState(emptySnapshot);
-  const [loading, setLoading] = useState(false);
+export function FriendsScreen({ navigation }: FriendsScreenProps) {
+  const { user, profile, authNotice, clearAuthNotice } = useAuth();
+  const { snapshot, agendas, loading } = useSocial();
+  const { selectedTimeIds } = useAgendaState();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
     if (!user) return;
-    setLoading(true);
-    try {
-      setSnapshot(await loadSocialSnapshot(user.id));
-    } catch (error) {
-      Alert.alert('Could not load friends', (error as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    refreshSocial(user.id).catch((error) => Alert.alert('Could not load friends', (error as Error).message));
   }, [user]);
 
   useFocusEffect(
@@ -66,34 +48,21 @@ export function FriendsScreen({ navigation }: Props) {
 
   if (!user) {
     return (
-      <SafeAreaView edges={['top']} style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.signedOut}>
+      <ScrollView contentContainerStyle={styles.signedOut} contentInsetAdjustmentBehavior="automatic">
+        <View style={styles.hero}>
           <BrandMark size={72} />
-          <Text style={styles.eyebrow}>PLAN WITH FRIENDS</Text>
-          <Text style={styles.title}>Know where your people are.</Text>
-          <Text style={styles.body}>
-            Connect by mutual approval, keep your agenda private by default, and opt in
-            when you’re ready to share.
+          <Text style={[text.title1, styles.center]}>Know where your people are</Text>
+          <Text style={[text.bodySecondary, styles.center]}>
+            Connect by mutual approval, keep your agenda private by default, and share it only when you choose.
           </Text>
-          <PrimaryButton
-            icon="mail-outline"
-            onPress={() => navigation.navigate('Auth')}
-            title="Sign in with email"
-          />
-          <View style={styles.benefits}>
-            {[
-              ['lock-closed-outline', 'Private by default'],
-              ['people-outline', 'Mutual friendship approval'],
-              ['calendar-outline', 'Side-by-side plans'],
-            ].map(([icon, label]) => (
-              <View key={label} style={styles.benefit}>
-                <Ionicons color={colors.blue} name={icon as never} size={20} />
-                <Text style={styles.benefitText}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+        <GroupedSection>
+          <Row leading={<Icon {...icons.lock} color={colors.tint} size={20} />} title="Private by default" />
+          <Row leading={<Icon {...icons.people} color={colors.tint} size={20} />} title="Friendships need mutual approval" />
+          <Row leading={<Icon {...icons.calendar} color={colors.tint} size={20} />} title="See who is going where, side by side" />
+        </GroupedSection>
+        <PrimaryButton icon={icons.person} onPress={() => navigation.navigate('Auth')} title="Sign in" />
+      </ScrollView>
     );
   }
 
@@ -103,8 +72,11 @@ export function FriendsScreen({ navigation }: Props) {
     try {
       await sendFriendRequest(email);
       setEmail('');
-      await refresh();
-      Alert.alert('Request sent', 'They’ll need to accept before either agenda is visible.');
+      refresh();
+      Alert.alert(
+        'Request sent',
+        'If that email has a DF Together account, they will see your request. Otherwise share an invite link.',
+      );
     } catch (error) {
       Alert.alert('Could not send request', (error as Error).message);
     } finally {
@@ -115,10 +87,12 @@ export function FriendsScreen({ navigation }: Props) {
   const shareInvite = async () => {
     try {
       const code = await createFriendInvite();
-      const link = Linking.createURL(`invite/${code}`, { scheme: 'dftogether' });
+      const fallback = Linking.createURL(`invite/${code}`, { scheme: 'dftogether' });
       const publicUrl = process.env.EXPO_PUBLIC_APP_SHARE_URL;
+      const link = publicUrl ? `${publicUrl}?invite=${code}` : fallback;
       await Share.share({
-        message: `Join ${profile?.display_name ?? 'me'} on DF Together to compare Dreamforce 2026 agendas. ${publicUrl ? `${publicUrl}?invite=${code}` : link}`,
+        message: `Join ${profile?.display_name ?? 'me'} on DF Together to compare Dreamforce 2026 agendas. ${link}`,
+        url: link,
       });
     } catch (error) {
       Alert.alert('Could not create invite', (error as Error).message);
@@ -128,199 +102,180 @@ export function FriendsScreen({ navigation }: Props) {
   const respond = async (id: string, status: 'accepted' | 'rejected') => {
     try {
       await updateFriendship(id, status);
-      await refresh();
+      refresh();
     } catch (error) {
       Alert.alert('Could not update request', (error as Error).message);
     }
   };
 
+  const friendOptions = (friendship: Friendship, friend: FriendProfile) =>
+    showActions({
+      title: friend.display_name,
+      options: [
+        {
+          label: 'View agenda',
+          onPress: () => navigation.navigate('FriendAgenda', { friendId: friend.id, friendName: friend.display_name }),
+        },
+        {
+          label: 'Remove friend',
+          destructive: true,
+          onPress: () =>
+            confirmDestructive({
+              title: `Remove ${friend.display_name}?`,
+              message: 'Neither of you will see the other’s agenda. You can reconnect later.',
+              confirmLabel: 'Remove',
+              onConfirm: () =>
+                removeFriendship(friendship.id)
+                  .then(refresh)
+                  .catch((error) => Alert.alert('Could not remove friend', (error as Error).message)),
+            }),
+        },
+      ],
+    });
+
+  const inCommon = (friendId: string) =>
+    (agendas[friendId] ?? []).reduce(
+      (total, selection) => total + (selectedTimeIds.has(selection.sessionTimeId) ? 1 : 0),
+      0,
+    );
+
   return (
-    <SafeAreaView edges={['top']} style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
-      >
-        <Text style={styles.eyebrow}>FRIENDS</Text>
-        <Text style={styles.title}>Find your crew</Text>
-        <Text style={styles.body}>Only accepted friends can see an agenda you choose to share.</Text>
-        {authNotice ? <Text style={styles.notice}>{authNotice}</Text> : null}
+    <ScrollView
+      contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl onRefresh={refresh} refreshing={loading && snapshot.friends.length > 0} />}
+    >
+      {authNotice ? (
+        <Pressable accessibilityHint="Dismisses this message" accessibilityRole="button" onPress={clearAuthNotice} style={styles.notice}>
+          <Icon {...icons.infoFill} color={colors.tint} size={18} />
+          <Text style={[text.footnote, styles.flex]}>{authNotice}</Text>
+          <Icon {...icons.close} color={colors.tertiaryLabel} size={14} weight="semibold" />
+        </Pressable>
+      ) : null}
 
-        <View style={styles.inviteCard}>
-          <Text style={styles.cardTitle}>Invite a friend</Text>
-          <View style={styles.emailRow}>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              onSubmitEditing={inviteByEmail}
-              placeholder="friend@email.com"
-              placeholderTextColor={colors.inkMuted}
-              style={styles.emailInput}
-              value={email}
-            />
-            <PrimaryButton compact loading={sending} onPress={inviteByEmail} title="Send" />
-          </View>
-          <PrimaryButton
-            compact
-            icon="share-outline"
-            onPress={shareInvite}
-            title="Share invite link"
-            variant="secondary"
+      <GroupedSection footer="Only accepted friends can see an agenda you choose to share." header="Invite">
+        <Cell style={styles.emailCell}>
+          <Icon {...icons.mail} color={colors.secondaryLabel} size={18} />
+          <TextInput
+            accessibilityLabel="Friend’s email address"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            onChangeText={setEmail}
+            onSubmitEditing={inviteByEmail}
+            placeholder="friend@company.com"
+            placeholderTextColor={colors.placeholder}
+            returnKeyType="send"
+            style={[text.body, styles.flex]}
+            textContentType="emailAddress"
+            value={email}
           />
-        </View>
+          <PrimaryButton compact disabled={!email.includes('@')} loading={sending} onPress={inviteByEmail} title="Send" />
+        </Cell>
+        <Row
+          leading={<Icon {...icons.share} color={colors.tint} size={20} />}
+          onPress={shareInvite}
+          tinted
+          title="Share an invite link"
+        />
+      </GroupedSection>
 
-        {snapshot.incoming.length ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Friend requests</Text>
-            {snapshot.incoming.map(({ friendship, profile: friend }) => (
-              <View key={friendship.id} style={styles.requestRow}>
-                <Avatar color={friend.avatar_color} name={friend.display_name} />
-                <Text style={styles.friendName}>{friend.display_name}</Text>
-                <Pressable onPress={() => respond(friendship.id, 'rejected')}>
-                  <Ionicons color={colors.inkMuted} name="close-circle" size={30} />
-                </Pressable>
-                <Pressable onPress={() => respond(friendship.id, 'accepted')}>
-                  <Ionicons color={colors.green} name="checkmark-circle" size={30} />
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        ) : null}
+      {snapshot.incoming.length ? (
+        <GroupedSection header="Requests">
+          {snapshot.incoming.map(({ friendship, profile: friend }) => (
+            <Row
+              key={friendship.id}
+              leading={<Avatar color={friend.avatar_color} name={friend.display_name} size={32} />}
+              title={friend.display_name}
+              trailing={
+                <View style={styles.requestActions}>
+                  <PrimaryButton compact onPress={() => respond(friendship.id, 'rejected')} title="Decline" variant="gray" />
+                  <PrimaryButton compact onPress={() => respond(friendship.id, 'accepted')} title="Accept" />
+                </View>
+              }
+            />
+          ))}
+        </GroupedSection>
+      ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your friends</Text>
-          {loading && !snapshot.friends.length ? (
-            <ActivityIndicator color={colors.blueBright} />
-          ) : snapshot.friends.length ? (
-            snapshot.friends.map(({ friendship, profile: friend }) => (
-              <FriendRow
-                friend={friend}
-                friendship={friendship}
+      <GroupedSection header="Friends">
+        {snapshot.friends.length ? (
+          snapshot.friends.map(({ friendship, profile: friend }) => {
+            const common = friend.share_agenda_with_friends ? inCommon(friend.id) : 0;
+            return (
+              <Row
+                accessibilityHint="Opens their shared agenda. Long press for more options."
+                accessory="chevron"
                 key={friendship.id}
+                leading={<Avatar color={friend.avatar_color} name={friend.display_name} size={36} />}
                 onPress={() =>
-                  navigation.navigate('FriendAgenda', {
-                    friendId: friend.id,
-                    friendName: friend.display_name,
-                  })
+                  navigation.navigate('FriendAgenda', { friendId: friend.id, friendName: friend.display_name })
+                }
+                subtitle={
+                  friend.share_agenda_with_friends
+                    ? common
+                      ? `Sharing · ${common} ${common === 1 ? 'session' : 'sessions'} together`
+                      : 'Sharing their agenda'
+                    : 'Agenda private'
+                }
+                title={friend.display_name}
+                trailing={
+                  <Pressable
+                    accessibilityLabel={`More options for ${friend.display_name}`}
+                    accessibilityRole="button"
+                    hitSlop={10}
+                    onPress={() => friendOptions(friendship, friend)}
+                  >
+                    <Icon {...icons.personRemove} color={colors.tertiaryLabel} size={18} />
+                  </Pressable>
                 }
               />
-            ))
-          ) : (
-            <EmptyState
-              body="Send an invitation above. Friendship must be mutual before sharing."
-              icon="people-outline"
-              title="No friends yet"
-            />
-          )}
-        </View>
-
-        {snapshot.outgoing.length ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Waiting for approval</Text>
-            {snapshot.outgoing.map(({ friendship, profile: friend }) => (
-              <View key={friendship.id} style={styles.requestRow}>
-                <Avatar color={friend.avatar_color} name={friend.display_name} size={38} />
-                <Text style={styles.friendName}>{friend.display_name}</Text>
-                <Text style={styles.pending}>Pending</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function FriendRow({
-  friend,
-  onPress,
-}: {
-  friend: FriendProfile;
-  friendship: Friendship;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.friendRow, pressed && styles.pressed]}>
-      <Avatar color={friend.avatar_color} name={friend.display_name} />
-      <View style={styles.friendCopy}>
-        <Text style={styles.friendName}>{friend.display_name}</Text>
-        <View style={styles.shareStatus}>
-          <Ionicons
-            color={friend.share_agenda_with_friends ? colors.green : colors.inkMuted}
-            name={friend.share_agenda_with_friends ? 'calendar' : 'lock-closed'}
-            size={13}
+            );
+          })
+        ) : (
+          <EmptyState
+            body={loading ? 'Loading your friends…' : 'Send an invitation above. Friendships are mutual before anything is shared.'}
+            icon={icons.people}
+            style={styles.emptyInCard}
+            title="No friends yet"
           />
-          <Text style={styles.shareStatusText}>
-            {friend.share_agenda_with_friends ? 'Agenda shared' : 'Agenda private'}
-          </Text>
-        </View>
-      </View>
-      <Ionicons color={colors.inkMuted} name="chevron-forward" size={22} />
-    </Pressable>
+        )}
+      </GroupedSection>
+
+      {snapshot.outgoing.length ? (
+        <GroupedSection header="Waiting for approval">
+          {snapshot.outgoing.map(({ friendship, profile: friend }) => (
+            <Row
+              detail="Pending"
+              key={friendship.id}
+              leading={<Avatar color={friend.avatar_color} name={friend.display_name} size={32} />}
+              title={friend.display_name}
+            />
+          ))}
+        </GroupedSection>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.canvas },
-  signedOut: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.lg },
-  content: { padding: spacing.xl, paddingBottom: 60, gap: spacing.lg },
-  eyebrow: { color: colors.blueBright, fontSize: 11, fontWeight: '900', letterSpacing: 1.4 },
-  title: { color: colors.ink, fontSize: 31, lineHeight: 36, fontWeight: '900' },
-  body: { color: colors.inkMuted, fontSize: 15, lineHeight: 22 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2, gap: spacing.xl },
+  signedOut: { padding: spacing.lg, paddingTop: spacing.xl, gap: spacing.xl },
+  hero: { alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg },
+  center: { textAlign: 'center' },
+  flex: { flex: 1 },
   notice: {
-    color: colors.green,
-    backgroundColor: colors.greenSoft,
-    padding: spacing.md,
-    borderRadius: radii.sm,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  benefits: { gap: spacing.md, marginTop: spacing.md },
-  benefit: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  benefitText: { color: colors.ink, fontSize: 14, fontWeight: '700' },
-  inviteCard: {
-    padding: spacing.lg,
-    borderRadius: radii.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    gap: spacing.md,
-  },
-  cardTitle: { color: colors.ink, fontSize: 18, fontWeight: '900' },
-  emailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  emailInput: {
-    flex: 1,
-    minHeight: 42,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    color: colors.ink,
-  },
-  section: { gap: spacing.md },
-  sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '900' },
-  requestRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: colors.tintSoft,
   },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  pressed: { opacity: 0.75 },
-  friendCopy: { flex: 1, gap: 4 },
-  friendName: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '800' },
-  shareStatus: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  shareStatusText: { color: colors.inkMuted, fontSize: 12 },
-  pending: { color: colors.orange, fontSize: 12, fontWeight: '800' },
+  emailCell: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  requestActions: { flexDirection: 'row', gap: spacing.sm },
+  emptyInCard: { paddingVertical: spacing.xl },
 });

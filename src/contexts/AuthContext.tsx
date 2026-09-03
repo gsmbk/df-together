@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import {
   createContext,
@@ -10,19 +11,16 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import {
-  authParams,
-  inviteCodeFromUrl,
-  isAuthCallbackUrl,
-} from '../lib/deep-links';
+import { Platform } from 'react-native';
+import { authParams, inviteCodeFromUrl, isAuthCallbackUrl } from '../lib/deep-links';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { syncNotes } from '../state/notes';
+import { clearSocial, refreshSocial } from '../state/social';
 import type { FriendProfile } from '../types';
 
 const PENDING_INVITE_KEY = 'df-together.pending-invite';
 const configuredAuthRedirect = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL?.trim();
-const authRedirectUrl = configuredAuthRedirect?.startsWith('https://')
-  ? configuredAuthRedirect
-  : null;
+const authRedirectUrl = configuredAuthRedirect?.startsWith('https://') ? configuredAuthRedirect : null;
 
 type AuthContextValue = {
   configured: boolean;
@@ -31,7 +29,10 @@ type AuthContextValue = {
   user: User | null;
   profile: FriendProfile | null;
   authNotice: string | null;
+  appleAvailable: boolean;
   sendMagicLink: (email: string) => Promise<void>;
+  /** Resolves true when signed in, false when the person cancelled. */
+  signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearAuthNotice: () => void;
@@ -44,19 +45,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<FriendProfile | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [appleAvailable, setAppleAvailable] = useState(false);
 
   const refreshProfile = useCallback(async () => {
     if (!supabase || !session?.user) {
       setProfile(null);
       return;
     }
-
     const { data, error } = await supabase
       .from('profiles')
       .select('id,display_name,avatar_color,share_agenda_with_friends')
       .eq('id', session.user.id)
       .maybeSingle();
-
     if (error) throw error;
     setProfile((data as FriendProfile | null) ?? null);
   }, [session?.user]);
@@ -65,15 +65,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (!supabase || !session?.user) return;
     const code = await AsyncStorage.getItem(PENDING_INVITE_KEY);
     if (!code) return;
-
-    const { error } = await supabase.rpc('accept_friend_invite', {
-      invite_code: code,
-    });
+    const { error } = await supabase.rpc('accept_friend_invite', { invite_code: code });
     if (error) {
       setAuthNotice(error.message);
       return;
     }
-
     await AsyncStorage.removeItem(PENDING_INVITE_KEY);
     setAuthNotice('Friend added. You can now choose whether to share your agenda.');
   }, [session?.user]);
@@ -85,16 +81,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       await AsyncStorage.setItem(PENDING_INVITE_KEY, inviteCode);
       const { data } = await supabase.auth.getSession();
       if (data.session?.user) {
-        const { error } = await supabase.rpc('accept_friend_invite', {
-          invite_code: inviteCode,
-        });
+        const { error } = await supabase.rpc('accept_friend_invite', { invite_code: inviteCode });
         if (error) {
           setAuthNotice(error.message);
         } else {
           await AsyncStorage.removeItem(PENDING_INVITE_KEY);
-          setAuthNotice(
-            'Friend added. You can now choose whether to share your agenda.',
-          );
+          setAuthNotice('Friend added. You can now choose whether to share your agenda.');
         }
       } else {
         setAuthNotice('Sign in to accept this friend invitation.');
@@ -103,7 +95,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     if (!isAuthCallbackUrl(url, authRedirectUrl ?? undefined)) return;
     const { accessToken, refreshToken, code } = authParams(url);
-
     if (accessToken && refreshToken) {
       const { error } = await supabase.auth.setSession({
         access_token: accessToken,
@@ -119,28 +110,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync()
+        .then(setAppleAvailable)
+        .catch(() => setAppleAvailable(false));
+    }
+  }, []);
+
+  useEffect(() => {
     if (!supabase) {
       setLoading(false);
       return;
     }
-
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
-
     const authSubscription = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
       setLoading(false);
     });
-
     Linking.getInitialURL().then((url) => {
       if (url) handleUrl(url).catch((error) => setAuthNotice(error.message));
     });
     const linkSubscription = Linking.addEventListener('url', ({ url }) => {
       handleUrl(url).catch((error) => setAuthNotice(error.message));
     });
-
     return () => {
       authSubscription.data.subscription.unsubscribe();
       linkSubscription.remove();
@@ -152,16 +147,59 @@ export function AuthProvider({ children }: PropsWithChildren) {
     acceptPendingInvite().catch((error) => setAuthNotice(error.message));
   }, [acceptPendingInvite, refreshProfile]);
 
+  // Keep friends, shared agendas, and notes in step with the signed-in account.
+  const userId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (!userId) {
+      clearSocial();
+      return;
+    }
+    refreshSocial(userId).catch(() => undefined);
+    syncNotes(userId).catch(() => undefined);
+  }, [userId]);
+
   const sendMagicLink = useCallback(async (email: string) => {
     if (!supabase) throw new Error('Supabase is not configured yet.');
-    const redirectTo =
-      authRedirectUrl ?? Linking.createURL('auth/callback', { scheme: 'dftogether' });
+    const redirectTo = authRedirectUrl ?? Linking.createURL('auth/callback', { scheme: 'dftogether' });
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
     });
     if (error) throw error;
-    setAuthNotice('Magic link sent. Open it on this device to finish signing in.');
+    setAuthNotice('Sign-in link sent. Open it on this device to finish signing in.');
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    if (!supabase) throw new Error('Supabase is not configured yet.');
+    let credential: AppleAuthentication.AppleAuthenticationCredential;
+    try {
+      credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ERR_REQUEST_CANCELED') return false;
+      throw error;
+    }
+    if (!credential.identityToken) throw new Error('Apple did not return an identity token.');
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+    });
+    if (error) throw error;
+
+    // Apple only shares the name on the very first authorization, so capture it now.
+    const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (fullName.length >= 2 && data.user) {
+      await supabase.from('profiles').update({ display_name: fullName.slice(0, 60) }).eq('id', data.user.id);
+    }
+    setAuthNotice('You’re signed in.');
+    return true;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -179,12 +217,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: session?.user ?? null,
       profile,
       authNotice,
+      appleAvailable,
       sendMagicLink,
+      signInWithApple,
       signOut,
       refreshProfile,
       clearAuthNotice: () => setAuthNotice(null),
     }),
-    [authNotice, loading, profile, refreshProfile, sendMagicLink, session, signOut],
+    [appleAvailable, authNotice, loading, profile, refreshProfile, sendMagicLink, session, signInWithApple, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

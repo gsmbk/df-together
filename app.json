@@ -6,10 +6,11 @@
     "scheme": "dftogether",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.geomorjane.dftogether",
+      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:df-together.com"
       ],
@@ -29,7 +30,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication",
+      "react-native-bottom-tabs",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "DF Together adds the sessions you choose to your calendar so they show up alongside your other plans."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0176D3"
+        }
+      ]
     ],
     "extra": {
       "eas": {

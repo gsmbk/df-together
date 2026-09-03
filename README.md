@@ -1,37 +1,52 @@
 # DF Together
 
-An independent iOS-first Dreamforce 2026 planning app built with Expo, React Native, Supabase, and a small optional Vercel invite page.
+An independent iOS-first Dreamforce 2026 planning app built with Expo, React Native, Supabase, and a small static Vercel site.
 
 The bundled catalog currently contains **1,377 sessions and 1,771 scheduled occurrences** imported from the [official Dreamforce 2026 catalog](https://reg.salesforce.com/flow/plus/df26/sessioncatalog/page/catalog) on August 30, 2026 (Pacific time).
 
 > DF Together is a planning companion. Adding a session here does **not** reserve a seat or update the official Salesforce/Dreamforce agenda. The app is independent and is not affiliated with or endorsed by Salesforce.
 
-## MVP features
+## Features
+
+**Plan**
 
 - Complete local session catalog that works without an account or network connection
-- Search plus format, product, role, industry, topic, level, location, day, equipment, community-speaker, and viewing-option filters
-- Local agenda with multiple-occurrence selection and overlap warnings
-- Supabase passwordless email magic-link sign-in
+- Native search in the navigation bar, a day picker, and a filter sheet for format, product, role, industry, topic, level, location, viewing option, community speaker, and required equipment
+- “For you” view driven by the products and roles you pick during onboarding or in Profile
+- Agenda grouped by day with swipe-to-remove, overlap detection, and an overlap resolver that suggests other times for either session
+- Walking-time warnings when consecutive sessions are in different buildings
+- Live event mode during Sep 14–17: what is happening now, what is next, and how far the walk is
+- Add a session, or the whole agenda, to the iOS Calendar; optional local reminders 10, 15, or 30 minutes before each session
+- Personal notes and a 1–5 rating per session, synced to your account when signed in
+- Share any session as a link (`df-together.com/s/<id>`) that opens in the app
+
+**Together**
+
+- Sign in with Apple or a password-free email link
 - Offline-first agenda sync after sign-in
-- Mutual friend requests by email or one-time invite link
+- Mutual friend requests by email or one-time invite link, and the ability to remove a friend
 - Agenda privacy off by default, with sharing limited to accepted friends
-- Friend agenda view highlighting sessions both people selected
-- Planning-only notice in the agenda, profile, sign-in, session detail, and invite page
+- Friend agenda view highlighting sessions you both chose, sessions you chose at a different time, and gaps when you are both free
+- “Friends going” on every session, in Browse and on the session page
+
+**Design**
+
+- Follows Apple's Human Interface Guidelines: semantic colors, Dynamic Type, inset grouped lists, native large titles, SF Symbols, native tabs (Liquid Glass on iOS 26), form sheets, and system action sheets
+- Dark Mode and accessibility settings come from the system palette; see [`BRAND.md`](./BRAND.md)
 
 ## 1. Run the app locally
 
-Requirements: Node.js 22+, npm, Xcode for an iOS simulator, and a Supabase project for social features.
+Requirements: Node.js 22+, npm, Xcode 26 with an iOS simulator, CocoaPods (Expo installs it via Homebrew if missing), and a Supabase project for social features.
 
 ```bash
 npm install
 cp .env.example .env
-npm start
+npx expo run:ios
 ```
 
-Browsing and local agenda planning work before Supabase is configured. Expo Go is
-enough for that local-only flow; use a development, preview, or TestFlight build
-when testing magic links because authentication needs the stable `dftogether://`
-callback scheme.
+The app uses native modules (native tabs, calendar, notifications, Sign in with Apple), so it needs a development build rather than Expo Go. The first `npx expo run:ios` creates the `ios` folder, installs pods, builds, and starts Metro. If a physical iPhone is paired, pass a simulator explicitly, for example `npx expo run:ios --device "iPhone 17 Pro"`.
+
+Browsing and local agenda planning work before Supabase is configured.
 
 ## 2. Configure Supabase
 
@@ -43,7 +58,7 @@ callback scheme.
    supabase config push
    ```
 
-   The migrations create profiles, private email lookup, friendships, one-time invites, agenda items, row-level security policies, the auth-user profile trigger, and non-public privileged RPC implementations.
+   The migrations create profiles, private email lookup, friendships, one-time invites, agenda items, personal session notes, row-level security policies, the auth-user profile trigger, and non-public privileged RPC implementations. Friend requests to unknown addresses return silently so the app never reveals whether an email has an account.
 3. If you use a different app scheme, update `additional_redirect_urls` in [`supabase/config.toml`](./supabase/config.toml). The official build uses:
 
    ```text
@@ -58,6 +73,10 @@ callback scheme.
    ```
 
 Use the client-safe publishable key, never a service-role key. Restart Expo after changing `.env`.
+
+### Sign in with Apple
+
+The app offers the native Apple sign-in button on iOS. In the Supabase dashboard enable the Apple provider and add the bundle identifier `com.geomorjane.dftogether` under **Client IDs**. Native flows do not need a Services ID or secret. The matching block in [`supabase/config.toml`](./supabase/config.toml) is commented out so `config push` keeps working before the provider is configured. `usesAppleSignIn` is already set in [`app.json`](./app.json); make sure the App ID has the Sign in with Apple capability in the Apple Developer portal.
 
 ### Production Auth email
 
@@ -91,7 +110,7 @@ npm run import:sessions
 npm run validate:catalog
 ```
 
-The importer is intentionally manual for this MVP; the app never modifies the official catalog or an attendee’s Salesforce agenda.
+The importer is intentionally manual for this MVP; the app never modifies the official catalog or an attendee’s Salesforce agenda. Speaker extraction is best-effort and depends on the catalog markup; confirm the selector in `scripts/import-dreamforce.mjs` when speakers appear on the catalog cards.
 
 ## 4. Fastest friend distribution: TestFlight
 
@@ -114,9 +133,10 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ## 5. DF Together web experience
 
-Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is the static Vercel site at [df-together.com](https://df-together.com). It provides the public landing page, friend-invite bridge, magic-link handoff, privacy notice, and support page:
+Custom app links are not always clickable in chat apps. [`invite-web`](./invite-web) is the static Vercel site at [df-together.com](https://df-together.com). It provides the public landing page, friend-invite bridge, session-share bridge, magic-link handoff, privacy notice, and support page:
 
 - `https://df-together.com/invite?invite=...`
+- `https://df-together.com/s/<sessionId>`
 - `https://df-together.com/auth/confirm`
 - `https://df-together.com/auth/callback`
 - `https://df-together.com/privacy`
@@ -138,7 +158,7 @@ Until the iPhone beta is available, the site clearly marks it as coming soon.
    EXPO_PUBLIC_AUTH_REDIRECT_URL=https://df-together.com/auth/callback
    ```
 
-Rebuild the app after changing a public Expo environment variable. Friend shares then use `https://df-together.com/invite?invite=...`; the authenticated web callback securely hands the magic-link result into the native app. The native `dftogether://` scheme remains available as a fallback.
+Rebuild the app after changing a public Expo environment variable. Friend shares then use `https://df-together.com/invite?invite=...`, session shares use `https://df-together.com/s/<id>`, and the authenticated web callback securely hands the magic-link result into the native app. The native `dftogether://` scheme remains available as a fallback.
 
 The iOS associated-domain entitlement is already configured for `df-together.com`. Before making HTTPS links open the app directly, add the Apple Team ID to `invite-web/.well-known/apple-app-site-association`, deploy it, and rebuild the iOS app.
 
@@ -146,27 +166,31 @@ The iOS associated-domain entitlement is already configured for `df-together.com
 
 ```bash
 npm run check
-npx expo export --platform ios
 ```
 
 The check command runs strict TypeScript validation, behavior tests for agenda
-sync, deep links, search, filters, and overlap detection, then validates catalog
-counts, unique IDs, required fields, timestamps, source attribution, and the
+sync, deep links, search, filters, overlap detection, venue walking estimates,
+live-mode snapshots, and shared free time, then validates catalog counts,
+unique IDs, required fields, timestamps, source attribution, and the
 planning-only disclaimer.
 
 ## Contributing
 
-Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the [`DF Together brand guide`](./BRAND.md), use an issue to discuss substantial changes, and open a focused pull request against `main`. Privacy-sensitive social changes should explain their row-level security and sharing impact.
+Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the [`design guide`](./BRAND.md), use an issue to discuss substantial changes, and open a focused pull request against `main`. Privacy-sensitive social changes should explain their row-level security and sharing impact.
 
 ## Project map
 
-- [`App.tsx`](./App.tsx) — navigation and app providers
-- [`BRAND.md`](./BRAND.md) — shared palette, visual direction, and independence boundaries
-- [`assets/brand-icon.svg`](./assets/brand-icon.svg) — editable source for the original app mark
+- [`App.tsx`](./App.tsx) — navigation (native tabs, per-tab stacks, sheets), providers, deep links
+- [`BRAND.md`](./BRAND.md) — design system, palette rules, and independence boundaries
+- [`src/theme.ts`](./src/theme.ts) — semantic colors, Dynamic Type ramp, spacing, radii
+- [`src/components`](./src/components) — grouped-list primitives, SF Symbol icons, session rows, live card
+- [`src/data/catalog.ts`](./src/data/catalog.ts) — precomputed search index, day options, helpers
+- [`src/data/venues.ts`](./src/data/venues.ts) — building detection and walking estimates
 - [`src/data/sessions.json`](./src/data/sessions.json) — bundled offline catalog
+- [`src/contexts/AgendaContext.tsx`](./src/contexts/AgendaContext.tsx) — account-isolated offline agenda and Supabase sync, split into state and actions contexts
+- [`src/contexts/AuthContext.tsx`](./src/contexts/AuthContext.tsx) — Apple and magic-link sign-in, invite deep links
+- [`src/state`](./src/state) — small persisted stores for preferences, browse filters, friends, and notes
+- [`src/lib`](./src/lib) — live mode, free-time finder, calendar export, reminders, sharing, social operations
 - [`scripts/import-dreamforce.mjs`](./scripts/import-dreamforce.mjs) — repeatable catalog importer
-- [`src/contexts/AgendaContext.tsx`](./src/contexts/AgendaContext.tsx) — account-isolated offline agenda and Supabase sync
-- [`src/contexts/AuthContext.tsx`](./src/contexts/AuthContext.tsx) — magic-link and invite deep links
-- [`src/lib/social.ts`](./src/lib/social.ts) — friend and agenda-sharing operations
 - [`supabase/migrations`](./supabase/migrations) — schema, RPCs, and row-level security
 - [`eas.json`](./eas.json) — development, internal-preview, and TestFlight build profiles
