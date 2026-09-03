@@ -1,4 +1,3 @@
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLayoutEffect, useState } from 'react';
 import {
   Alert,
@@ -8,7 +7,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { BrandMark } from '../components/BrandMark';
@@ -20,14 +18,12 @@ import { icons } from '../components/icons';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuth } from '../contexts/AuthContext';
 import type { RootScreenProps } from '../navigation';
-import { colors, radii, spacing, text } from '../theme';
+import { colors, spacing, text } from '../theme';
 
 export function AuthScreen({ navigation }: RootScreenProps<'Auth'>) {
-  const { configured, sendMagicLink, signInWithApple, appleAvailable } = useAuth();
-  const colorScheme = useColorScheme();
+  const { configured, sendMagicLink } = useAuth();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
-  const [appleBusy, setAppleBusy] = useState(false);
   const [sent, setSent] = useState(false);
 
   useLayoutEffect(() => {
@@ -49,18 +45,6 @@ export function AuthScreen({ navigation }: RootScreenProps<'Auth'>) {
       Alert.alert('Could not send sign-in link', (error as Error).message);
     } finally {
       setSending(false);
-    }
-  };
-
-  const apple = async () => {
-    setAppleBusy(true);
-    try {
-      const signedIn = await signInWithApple();
-      if (signedIn) navigation.goBack();
-    } catch (error) {
-      Alert.alert('Could not sign in with Apple', (error as Error).message);
-    } finally {
-      setAppleBusy(false);
     }
   };
 
@@ -101,26 +85,6 @@ export function AuthScreen({ navigation }: RootScreenProps<'Auth'>) {
           </GroupedSection>
         ) : (
           <View style={styles.form}>
-            {appleAvailable ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonStyle={
-                  colorScheme === 'dark'
-                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                }
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                cornerRadius={radii.lg}
-                onPress={() => void apple()}
-                style={[styles.appleButton, appleBusy && styles.busy]}
-              />
-            ) : null}
-            {appleAvailable ? (
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={text.footnoteSecondary}>or use email</Text>
-                <View style={styles.dividerLine} />
-              </View>
-            ) : null}
             <GroupedSection footer="We’ll email you a one-time sign-in link.">
               <Cell style={styles.emailCell}>
                 <Icon {...icons.mail} color={colors.secondaryLabel} size={18} />
@@ -163,10 +127,6 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg },
   center: { textAlign: 'center' },
   form: { gap: spacing.lg },
-  appleButton: { height: 50, width: '100%' },
-  busy: { opacity: 0.5 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.separator },
   emailCell: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
   sent: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
 });

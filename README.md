@@ -23,7 +23,7 @@ The bundled catalog currently contains **1,377 sessions and 1,771 scheduled occu
 
 **Together**
 
-- Sign in with Apple or a password-free email link
+- Password-free email sign-in link
 - Offline-first agenda sync after sign-in
 - Mutual friend requests by email or one-time invite link, and the ability to remove a friend
 - Agenda privacy off by default, with sharing limited to accepted friends
@@ -53,7 +53,7 @@ cp .env.example .env
 npx expo run:ios
 ```
 
-The app uses native modules (native tabs, calendar, notifications, Sign in with Apple), so it needs a development build rather than Expo Go. The first `npx expo run:ios` creates the `ios` folder, installs pods, builds, and starts Metro. If a physical iPhone is paired, pass a simulator explicitly, for example `npx expo run:ios --device "iPhone 17 Pro"`.
+The app uses native modules (native tabs, calendar, notifications), so it needs a development build rather than Expo Go. The first `npx expo run:ios` creates the `ios` folder, installs pods, builds, and starts Metro. If a physical iPhone is paired, pass a simulator explicitly, for example `npx expo run:ios --device "iPhone 17 Pro"`.
 
 Browsing and local agenda planning work before Supabase is configured.
 
@@ -82,10 +82,6 @@ Browsing and local agenda planning work before Supabase is configured.
    ```
 
 Use the client-safe publishable key, never a service-role key. Restart Expo after changing `.env`.
-
-### Sign in with Apple
-
-The app offers the native Apple sign-in button on iOS. In the Supabase dashboard enable the Apple provider and add the bundle identifier `com.geomorjane.dftogether` under **Client IDs**. Native flows do not need a Services ID or secret. The matching block in [`supabase/config.toml`](./supabase/config.toml) is commented out so `config push` keeps working before the provider is configured. `usesAppleSignIn` is already set in [`app.json`](./app.json); make sure the App ID has the Sign in with Apple capability in the Apple Developer portal.
 
 ### Production Auth email
 
@@ -197,7 +193,7 @@ Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) and
 - [`src/data/venues.ts`](./src/data/venues.ts) — building detection and walking estimates
 - [`src/data/sessions.json`](./src/data/sessions.json) — bundled offline catalog
 - [`src/contexts/AgendaContext.tsx`](./src/contexts/AgendaContext.tsx) — account-isolated offline agenda and Supabase sync, split into state and actions contexts
-- [`src/contexts/AuthContext.tsx`](./src/contexts/AuthContext.tsx) — Apple and magic-link sign-in, invite deep links
+- [`src/contexts/AuthContext.tsx`](./src/contexts/AuthContext.tsx) — magic-link sign-in, invite deep links
 - [`src/state`](./src/state) — small persisted stores for preferences, browse filters, friends, and notes
 - [`src/lib`](./src/lib) — live mode, free-time finder, calendar export, reminders, sharing, social operations
 - [`scripts/import-dreamforce.mjs`](./scripts/import-dreamforce.mjs) — repeatable catalog importer

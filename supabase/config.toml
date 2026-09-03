@@ -421,12 +421,3 @@ enabled = true
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
-# Native Sign in with Apple (expo-apple-authentication + signInWithIdToken).
-# Native flows only need the bundle identifier registered as a client id; no
-# services-id secret is required. Uncomment after enabling the Apple provider
-# in the Supabase dashboard (Authentication → Providers → Apple) and adding
-# com.geomorjane.dftogether under Client IDs.
-# [auth.external.apple]
-# enabled = true
-# client_id = "com.geomorjane.dftogether"
-# secret = ""

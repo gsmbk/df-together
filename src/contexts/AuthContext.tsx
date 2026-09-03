@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import {
   createContext,
@@ -29,10 +28,7 @@ type AuthContextValue = {
   user: User | null;
   profile: FriendProfile | null;
   authNotice: string | null;
-  appleAvailable: boolean;
   sendMagicLink: (email: string) => Promise<void>;
-  /** Resolves true when signed in, false when the person cancelled. */
-  signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearAuthNotice: () => void;
@@ -45,7 +41,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<FriendProfile | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [appleAvailable, setAppleAvailable] = useState(false);
 
   const refreshProfile = useCallback(async () => {
     if (!supabase || !session?.user) {
@@ -110,14 +105,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      AppleAuthentication.isAvailableAsync()
-        .then(setAppleAvailable)
-        .catch(() => setAppleAvailable(false));
-    }
-  }, []);
-
-  useEffect(() => {
     if (!supabase) {
       setLoading(false);
       return;
@@ -169,39 +156,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setAuthNotice('Sign-in link sent. Open it on this device to finish signing in.');
   }, []);
 
-  const signInWithApple = useCallback(async () => {
-    if (!supabase) throw new Error('Supabase is not configured yet.');
-    let credential: AppleAuthentication.AppleAuthenticationCredential;
-    try {
-      credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-    } catch (error) {
-      if ((error as { code?: string }).code === 'ERR_REQUEST_CANCELED') return false;
-      throw error;
-    }
-    if (!credential.identityToken) throw new Error('Apple did not return an identity token.');
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'apple',
-      token: credential.identityToken,
-    });
-    if (error) throw error;
-
-    // Apple only shares the name on the very first authorization, so capture it now.
-    const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-    if (fullName.length >= 2 && data.user) {
-      await supabase.from('profiles').update({ display_name: fullName.slice(0, 60) }).eq('id', data.user.id);
-    }
-    setAuthNotice('You’re signed in.');
-    return true;
-  }, []);
-
   const signOut = useCallback(async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
@@ -217,14 +171,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: session?.user ?? null,
       profile,
       authNotice,
-      appleAvailable,
       sendMagicLink,
-      signInWithApple,
       signOut,
       refreshProfile,
       clearAuthNotice: () => setAuthNotice(null),
     }),
-    [appleAvailable, authNotice, loading, profile, refreshProfile, sendMagicLink, session, signInWithApple, signOut],
+    [authNotice, loading, profile, refreshProfile, sendMagicLink, session, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

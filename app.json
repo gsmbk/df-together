@@ -10,7 +10,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.geomorjane.dftogether",
-      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:df-together.com"
       ],
@@ -31,7 +30,6 @@
     },
     "plugins": [
       "expo-font",
-      "expo-apple-authentication",
       "react-native-bottom-tabs",
       [
         "expo-calendar",
