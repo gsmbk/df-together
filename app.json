@@ -36,7 +36,8 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "DF Together adds sessions you choose to your calendar, and can read your calendar during Dreamforce to compare your plan with the official agenda."
+          "calendarPermission": "DF Together adds sessions you choose to your calendar, and can read your calendar during Dreamforce to compare your plan with the official agenda.",
+          "remindersPermission": false
         }
       ],
       [
