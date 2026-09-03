@@ -17,6 +17,7 @@ import { ensureNotificationPermission } from '../lib/reminders';
 import { updateAgendaSharing, updateDisplayName } from '../lib/social';
 import type { ProfileScreenProps } from '../navigation';
 import { updatePreferences, usePreferences } from '../state/preferences';
+import { useSalesforce } from '../state/salesforce';
 import { colors, spacing, text } from '../theme';
 
 const supportUrl = 'https://df-together.com/support';
@@ -26,6 +27,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, profile, signOut, refreshProfile, configured } = useAuth();
   const { resolved } = useAgendaState();
   const preferences = usePreferences();
+  const salesforce = useSalesforce();
   const [nameDraft, setNameDraft] = useState<string | null>(null);
 
   const setSharing = async (enabled: boolean) => {
@@ -174,6 +176,14 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         {preferences.remindersEnabled ? (
           <Row accessory="chevron" detail={`${preferences.reminderLeadMinutes} min before`} onPress={chooseLeadTime} title="Remind me" />
         ) : null}
+        <Row
+          accessory="chevron"
+          detail={salesforce.enabled ? `${salesforce.matches.length} matched` : 'Off'}
+          leading={<Icon {...icons.swap} color={colors.indigo} size={20} />}
+          onPress={() => navigation.navigate('SalesforceSync')}
+          subtitle="Compare your plan with the official Dreamforce agenda"
+          title="Official agenda"
+        />
         <Row
           disabled={!resolved.length}
           leading={<Icon {...icons.calendarAdd} color={colors.tint} size={20} />}

@@ -18,6 +18,7 @@ import { exportAgendaToCalendar } from '../lib/calendar';
 import { liveSnapshot, tightTransitions } from '../lib/live';
 import { useNow } from '../lib/use-now';
 import type { AgendaScreenProps } from '../navigation';
+import { reservedIdsFrom, useSalesforce } from '../state/salesforce';
 import { colors, hairline, radii, spacing, text } from '../theme';
 import type { ResolvedAgendaItem } from '../types';
 
@@ -25,6 +26,7 @@ type AgendaRow = ResolvedAgendaItem & {
   position: RowPosition;
   conflictsWith: ResolvedAgendaItem | null;
   tight: { walk: number; gap: number } | null;
+  reserved: boolean;
 };
 
 type DaySection = { title: string; subtitle: string; data: AgendaRow[] };
@@ -33,6 +35,8 @@ export function AgendaScreen({ navigation }: AgendaScreenProps) {
   const { resolved, hydrated } = useAgendaState();
   const actions = useAgendaActions();
   const now = useNow();
+  const salesforce = useSalesforce();
+  const reservedIds = useMemo(() => reservedIdsFrom(salesforce), [salesforce]);
 
   const live = useMemo(() => liveSnapshot(resolved, now), [now, resolved]);
 
@@ -52,6 +56,7 @@ export function AgendaScreen({ navigation }: AgendaScreenProps) {
         position: 'middle',
         conflictsWith: conflict,
         tight: flag ? { walk: flag.walk, gap: flag.gap } : null,
+        reserved: reservedIds.has(item.time.id),
       });
       grouped.set(item.time.dateLabel, rows);
     });
@@ -63,7 +68,7 @@ export function AgendaScreen({ navigation }: AgendaScreenProps) {
       const [, date] = dateLabel.split(', ');
       return { title: weekday(dateLabel), subtitle: `${date} · ${rows.length} ${rows.length === 1 ? 'session' : 'sessions'}`, data: rows };
     });
-  }, [resolved]);
+  }, [reservedIds, resolved]);
 
   const exportAll = useCallback(() => {
     showActions({
@@ -192,6 +197,12 @@ function AgendaItemRow({
             <Text numberOfLines={1} style={text.footnoteSecondary}>
               {item.time.location}
             </Text>
+            {item.reserved ? (
+              <View style={styles.flag}>
+                <Icon {...icons.added} color={colors.green} size={13} />
+                <Text style={[text.footnote, styles.flagReserved]}>On your official agenda</Text>
+              </View>
+            ) : null}
             {item.conflictsWith ? (
               <Pressable
                 accessibilityHint="Shows other times for either session"
@@ -265,6 +276,7 @@ const styles = StyleSheet.create({
   flag: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   flagConflict: { color: colors.red, flexShrink: 1 },
   flagTight: { color: colors.orange, flexShrink: 1 },
+  flagReserved: { color: colors.green, flexShrink: 1 },
   resolve: { color: colors.tint, fontWeight: '600' },
   separator: { height: hairline, backgroundColor: colors.separator, marginLeft: spacing.lg + 62 + spacing.md },
   deleteAction: {

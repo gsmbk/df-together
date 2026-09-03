@@ -19,6 +19,7 @@ The bundled catalog currently contains **1,377 sessions and 1,771 scheduled occu
 - Add a session, or the whole agenda, to the iOS Calendar; optional local reminders 10, 15, or 30 minutes before each session
 - Personal notes and a 1–5 rating per session, synced to your account when signed in
 - Share any session as a link (`df-together.com/s/<id>`) that opens in the app
+- Opt-in comparison against the official Dreamforce agenda (see below)
 
 **Together**
 
@@ -28,6 +29,14 @@ The bundled catalog currently contains **1,377 sessions and 1,771 scheduled occu
 - Agenda privacy off by default, with sharing limited to accepted friends
 - Friend agenda view highlighting sessions you both chose, sessions you chose at a different time, and gaps when you are both free
 - “Friends going” on every session, in Browse and on the session page
+
+**Official agenda**
+
+DF Together cannot book or cancel anything on the official Dreamforce agenda. Adding a session there goes through Salesforce's own Trailblazer ID login with a first-party OAuth client, and RainFocus grants API access to the event host rather than to attendees or third-party apps. There is no attendee-facing API to write to.
+
+What the app can do is read one direction. The official Salesforce Events app can write a built agenda into the phone's calendar under **More → Sync to my calendar**. If someone has done that, Profile → Official agenda matches those entries back to the bundled catalog and reports the differences: reserved but not planned here, planned here but not reserved, and times that disagree.
+
+That comparison is opt-in and read-only. It reads only the Dreamforce dates, keeps only entries that match a catalog session, discards everything else, and never sends calendar contents anywhere. Events this app wrote itself are excluded so they cannot be mistaken for official reservations. It is a snapshot, so re-syncing from the Events app and checking again is needed after the official agenda changes.
 
 **Design**
 

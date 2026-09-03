@@ -37,6 +37,7 @@ import { FriendsScreen } from './src/screens/FriendsScreen';
 import { InterestsScreen } from './src/screens/InterestsScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { SalesforceSyncScreen } from './src/screens/SalesforceSyncScreen';
 import { SessionDetailScreen } from './src/screens/SessionDetailScreen';
 import { preferencesStore } from './src/state/preferences';
 import { colors } from './src/theme';
@@ -221,6 +222,11 @@ export default function App() {
                   component={InterestsScreen}
                   name="Interests"
                   options={{ title: 'Interests' }}
+                />
+                <RootStack.Screen
+                  component={SalesforceSyncScreen}
+                  name="SalesforceSync"
+                  options={{ title: 'Official agenda' }}
                 />
                 <RootStack.Screen
                   component={AuthScreen}

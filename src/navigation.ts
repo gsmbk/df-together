@@ -19,6 +19,7 @@ export type RootStackParamList = {
   SessionDetail: { sessionId: string; sessionTimeId?: string };
   FriendAgenda: { friendId: string; friendName: string };
   ConflictResolver: { sessionTimeId: string };
+  SalesforceSync: undefined;
   Filters: undefined;
   Interests: undefined;
   Auth: undefined;
